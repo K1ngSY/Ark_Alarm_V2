@@ -10,11 +10,15 @@ CONFIG += lrelease
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    ksubthread.cpp \
     main.cpp \
-    dashboard.cpp
+    dashboard.cpp \
+    scanner.cpp
 
 HEADERS += \
-    dashboard.h
+    dashboard.h \
+    ksubthread.h \
+    scanner.h
 
 FORMS += \
     dashboard.ui
