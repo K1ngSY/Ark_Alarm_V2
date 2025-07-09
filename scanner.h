@@ -11,7 +11,10 @@
 #include <QImage>
 #include <windows.h>
 
-
+enum window_type {
+    GAME,
+    TPPW
+};
 
 /**
  * @class Scanner
@@ -89,6 +92,29 @@ private:
     void make_call();
     void make_group_call();
     bool allow_this_keyword (const QString &key);
+
+    // ______________Helpers for "scan" function______________
+    bool check_windows_and_crash();
+    // Binds the Hwnd of the window has the entered title to m_game_window_hwnd
+    bool bind_game_window(const QString &title);
+    bool capture_and_analyze(QString &ocr_result1,
+                             QString &ocr_result2,
+                             QImage &pic1,
+                             QImage &pic2,
+                             QImage &screenshot);
+    bool ensure_tribe_log_open(QString &ocr_result1,
+                               QString &ocr_result2,
+                               QImage &pic1,
+                               QImage &pic2,
+                               QImage &screenshot);
+    bool detect_parasaurolophus(const QString &ocr_result1,
+                                QString &keyword_out);
+    bool handle_first_round();
+    void handle_parasaurolophus_alert(const QString &ocr_result1,
+                                      const QString &paras_keyword);
+    void handle_tribe_alerts(const QString &ocr_result2,
+                             const QImage &screenshot,
+                             const QMap<QString, QList<QString>> &logs_map);
 public slots:
 
 private slots:
@@ -99,11 +125,12 @@ private slots:
     void scan();
     void refresh_call_member();
     void initialize();
+
 signals:
     void text_alarm_sent(const QString &keyword);
     void image_sent(const QImage &img);
     /// window_type == GAME / TPPW
-    void find_window_failed(const QString &window_type);
+    void find_window_failed(window_type failed_window_type);
     void game_crashed();
     void got_picture_P(const QImage &pic);
     void got_picture_log(const QImage &pic);
