@@ -13,12 +13,14 @@ SOURCES += \
     ksubthread.cpp \
     main.cpp \
     dashboard.cpp \
-    scanner.cpp
+    scanner.cpp \
+    utility.cpp
 
 HEADERS += \
     dashboard.h \
     ksubthread.h \
-    scanner.h
+    scanner.h \
+    utility.h
 
 FORMS += \
     dashboard.ui
