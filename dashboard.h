@@ -1,8 +1,9 @@
 #ifndef DASHBOARD_H
 #define DASHBOARD_H
 
+#include "scanner.h"
 #include <QMainWindow>
-
+#include <QThread>
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class DashBoard;
@@ -16,6 +17,8 @@ class DashBoard : public QMainWindow
 public:
     DashBoard(QWidget *parent = nullptr);
     ~DashBoard();
+
+private slots:
 
 private:
     Ui::DashBoard *ui;
