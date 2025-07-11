@@ -13,14 +13,18 @@ SOURCES += \
     ksubthread.cpp \
     main.cpp \
     dashboard.cpp \
+    motion.cpp \
     scanner.cpp \
-    utility.cpp
+    utility.cpp \
+    visual.cpp
 
 HEADERS += \
     dashboard.h \
     ksubthread.h \
+    motion.h \
     scanner.h \
-    utility.h
+    utility.h \
+    visual.h
 
 FORMS += \
     dashboard.ui

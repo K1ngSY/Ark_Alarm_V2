@@ -66,6 +66,7 @@ private:
     QStringList m_nonSerious_log_keywords;
     QStringList m_P_keywords;
     QStringList m_error_window_title_flags;
+    QStringList m_game_timeout_keywords;
 
     int m_click_coordinate_x;
     int m_click_coordinate_y;
@@ -97,16 +98,14 @@ private:
     bool check_windows_and_crash();
     // Binds the Hwnd of the window has the entered title to m_game_window_hwnd
     bool bind_game_window(const QString &title);
+    // Capture & OCR analyze + ensure tribe log open + error-keyword check
     bool capture_and_analyze(QString &ocr_result1,
                              QString &ocr_result2,
                              QImage &pic1,
-                             QImage &pic2,
+                             QImage &pic_2,
                              QImage &screenshot);
-    bool ensure_tribe_log_open(QString &ocr_result1,
-                               QString &ocr_result2,
-                               QImage &pic1,
-                               QImage &pic2,
-                               QImage &screenshot);
+    // Only ensure, doesn't do anything else.
+    bool ensure_tribe_log_open();
     bool detect_parasaurolophus(const QString &ocr_result1,
                                 QString &keyword_out);
     bool handle_first_round();
