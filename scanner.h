@@ -85,7 +85,11 @@ private:
     // _______private functions_______
 
     /// Reads and splits tribe log by time stamp
-    QList<QPair<QString, QString>> split_tribe_log_entries(const QString &raw_tribe_log);
+    // 部落日志持久化去重 & 分割 / Persist & split tribe logs.
+    // 执行此函数之前手动检查部落日志识别结果是否为空.
+    // Returns a QMap.
+    // boolean(true) means it's serious.
+    QMap<QString, QPair<QStringList, bool>> split_tribe_logs(const QString &raw_tribe_log);
     /// It appends log to the locale file if it's new log.
     bool append_new_log(const QString &ts, const QString &content);
     void send_text (const QString &msg) const;
@@ -95,10 +99,12 @@ private:
     bool allow_this_keyword (const QString &key);
 
     // ______________Helpers for "scan" function______________
+
     bool check_windows_and_crash();
     // Binds the Hwnd of the window has the entered title to m_game_window_hwnd
     bool bind_game_window(const QString &title);
-    // Capture & OCR analyze + ensure tribe log open + error-keyword check
+    // Capture & OCR analyze + ensure tribe log open + error-keyword check.
+    // Returns OCR results of two areas.
     bool capture_and_analyze(QString &ocr_result1,
                              QString &ocr_result2,
                              QImage &pic1,
@@ -106,14 +112,12 @@ private:
                              QImage &screenshot);
     // Only ensure, doesn't do anything else.
     bool ensure_tribe_log_open();
-    bool detect_parasaurolophus(const QString &ocr_result1,
-                                QString &keyword_out);
-    bool handle_first_round();
-    void handle_parasaurolophus_alert(const QString &ocr_result1,
-                                      const QString &paras_keyword);
-    void handle_tribe_alerts(const QString &ocr_result2,
-                             const QImage &screenshot,
-                             const QMap<QString, QList<QString>> &logs_map);
+
+    bool check_parasaurolophus_alarm(const QString &ocr_result, QString &keyword_out);
+    // bool chek_OCRresult(const QString &ocr_result, QStringList keywords, QString &keyword_out);
+    inline bool handle_first_round(){return this->m_first_round;}
+    void handle_parasaurolophus_alert(const QString &keyword);
+    void handle_tribe_alerts(const QImage &screenshot, const QMap<QString, QPair<QStringList, bool>> &logs_map);
 public slots:
 
 private slots:
@@ -135,8 +139,8 @@ signals:
     void got_picture_log(const QImage &pic);
     void send_warn(const QString &msg);
     void game_timeout();
-    void play_slarm_sound_P();
-    void play_slarm_sound_log();
+    void play_alarm_sound_P();
+    void play_alarm_sound_log();
     void return_call_member(const QString &members);
     /// type == GROUP / SINGLE
     void made_call(const QString &type);
