@@ -1,23 +1,23 @@
-#ifndef KSUBTHREAD_H
-#define KSUBTHREAD_H
+#ifndef KWORKER_H
+#define KWORKER_H
 
 #include <QObject>
 
-class KSubthread : public QObject
+class KWorker : public QObject
 {
     Q_OBJECT
 public:
-    explicit KSubthread(QObject *parent = nullptr);
-    // only access to start its assign.
+    explicit KWorker(QObject *parent = nullptr);
+    // only access to start_work its assign.
     // must emit "start_signal".
-    virtual bool start()
+    virtual bool start_work()
     {
         emit start_signal();
         return true;
     }
-    // only access to stop itself.
+    // only access to stop_work itself.
     // must emit "stop_signal".
-    virtual bool stop()
+    virtual bool stop_work()
     {
         emit stop_signal();
         return true;
@@ -46,4 +46,4 @@ signals:
     void log_message_User(const QString &msg);
 };
 
-#endif // KSUBTHREAD_H
+#endif // KWORKER_H
