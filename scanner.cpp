@@ -7,43 +7,165 @@
 #include <QRegularExpression>
 #include <QDateTime>
 Scanner::Scanner(QObject *parent)
-    : KSubthread{parent}
+    : KWorker{parent}
 {
+    this->m_mCycle_timer_interval = 10000; // 循环时间暂时定为10秒一次
+    this->m_mCall_member_timer_interval = 500;
+    this->m_call_member_check_timer = nullptr;
+    this->m_cycle_timer = nullptr;
+    this->m_is_group_call = false;
+    this->m_need_call = false;
+    this->m_need_text = false;
+    this->m_first_round = true;
+    this->m_call_members = "[占位符]注意：您仍未设置群呼成员！";
+    this->m_game_timeout_keywords << "HOST"
+                                  << "CONNECTION"
+                                  << "TIMEOUT"
+                                  << "主机连接超时";
+    m_P_keywords << "dino"
+                 << "发现"
+                 << "detected"
+                 << "an"
+                 << "enemy";
+    m_serious_log_keywords << "被摧毁"
+                           << "击杀"
+                           << "was destroyed"
+                           << "was killed by";
+    m_nonSerious_log_keywords << "饿死"
+                              << "已死亡"
+                              << "认养"
+                              << "放生"
+                              << "拆除"
+                              << "提升"
+                              << "你的部落击杀了"
+                              << "被加入"
+                              << "starved"
+                              << "died"
+                              << "promoted"
+                              << "demoted"
+                              << "added"
+                              << "demolished"
+                              << "was killed"
+                              << "was removed"
+                              << "claimed"
+                              << "unclaimed"
+                              << "to public"
+                              << "to private"
+                              << "froze"
+                              << "Your Tribe killed";
+    m_all_log_keywords.append(m_serious_log_keywords);
+    m_all_log_keywords.append(m_nonSerious_log_keywords);
 
+    // ---------初始化过滤器字典---------
+    m_alarm_filter["starved"] = false;
+    m_alarm_filter["饿死"] = false;
+
+    m_alarm_filter["was killed"] = false;
+    m_alarm_filter["已死亡"] = false;
+
+    m_alarm_filter["demolished"] = false;
+    m_alarm_filter["拆除"] = false;
+
+    m_alarm_filter["claimed"] = false;
+    m_alarm_filter["认养"] = false;
+
+    m_alarm_filter["unclaimed"] = false;
+    m_alarm_filter["放生"] = false;
+
+    m_alarm_filter["promoted"] = false;
+    m_alarm_filter["提升"] = false;
+
+    m_alarm_filter["added"] = false;
+    m_alarm_filter["加入"] = false;
+
+    m_alarm_filter["was removed"] = false;
+    m_alarm_filter["踢出"] = false;
+
+    m_alarm_filter["demoted"] = false;
+    m_alarm_filter["降职"] = false;
+
+    // 公开盘子
+    m_alarm_filter["to public"] = false;
+    // 私有盘子
+    m_alarm_filter["to private"] = false;
+    // 冻龙
+    m_alarm_filter["froze"] = false;
+    // ---------初始化过滤器字典end---------
+
+    // ---------初始化警报中文提示词字典---------
+    m_alarm_promts_Chinese["被摧毁"] = "您的建筑被摧毁！";
+    m_alarm_promts_Chinese["击杀"] = "您的成员被杀！";
+    m_alarm_promts_Chinese["was destroyed"] = "您的建筑被摧毁！";
+    m_alarm_promts_Chinese["was killed by"] = "您的成员被杀！";
+    m_alarm_promts_Chinese["饿死"] = "您的龙被饿死了！";
+    m_alarm_promts_Chinese["已死亡"] = "自然死亡！";
+    m_alarm_promts_Chinese["认养"] = "您的龙被认养了！";
+    m_alarm_promts_Chinese["放生"] = "您的龙被放生了！";
+    m_alarm_promts_Chinese["拆除"] = "您的建筑被拆除了！";
+    m_alarm_promts_Chinese["提升"] = "您的某成员被升职！";
+    m_alarm_promts_Chinese["你的部落击杀了"] = "您的部落击杀了敌方目标！";
+    m_alarm_promts_Chinese["被加入"] = "有新成员加入了您的部落！";
+    m_alarm_promts_Chinese["starved"] = "您的龙被饿死了！";
+    m_alarm_promts_Chinese["died"] = "自然死亡！";
+    m_alarm_promts_Chinese["promoted"] = "您的某成员被升职！";
+    m_alarm_promts_Chinese["demoted"] = "您的某成员被降职！";
+    m_alarm_promts_Chinese["added"] = "有新成员加入了您的部落！";
+    m_alarm_promts_Chinese["demolished"] = "您的建筑被拆除了！";
+    m_alarm_promts_Chinese["was killed"] = "自然死亡！";
+    m_alarm_promts_Chinese["was removed"] = "某成员被踢出部落！";
+    m_alarm_promts_Chinese["claimed"] = "您的龙被认养了！";
+    m_alarm_promts_Chinese["unclaimed"] = "您的龙被放生了！";
+    m_alarm_promts_Chinese["to public"] = "您的某建筑权限被设置为公开！";
+    m_alarm_promts_Chinese["to private"] = "您的某建筑权限被设置为私有！";
+    m_alarm_promts_Chinese["froze"] = "您的某龙被收！";
+    m_alarm_promts_Chinese["Your Tribe killed"] = "您的部落击杀了敌方目标！";
 }
 
 Scanner::~Scanner()
 {
-
+    emit stop_signal();
 }
 
 void Scanner::set_TPPW(const QString &title, HWND TPPW_hwnd)
 {
     this->m_TPPW_title = title;
-    emit log_message_Debug("Alarm_set_TPPW:\n已经设置新的微信窗口标题为" + m_TPPW_title);
-    emit log_message_Debug("Alarm_set_TPPW:\nSet TPPW title to " + m_TPPW_title);
+    emit log_message_Debug("Scanner::set_TPPW:\n已经设置新的微信窗口标题为" + m_TPPW_title);
+    emit log_message_Debug("Scanner::set_TPPW:\nSet TPPW title to " + m_TPPW_title);
+    emit log_message_User("微信窗口标题已更新为" + m_TPPW_title);
     this->m_TPPW_hwnd = TPPW_hwnd;
-    emit log_message_Debug(QString("Alarm_set_TPPW:\n已经设置新的微信窗口句柄为 %1").arg((qulonglong)m_TPPW_hwnd));
-    emit log_message_Debug(QString("Alarm_set_TPPW:\nSet TPPW Hwnd to %1").arg((qulonglong)m_TPPW_hwnd));
+    emit log_message_Debug(QString("Scanner::set_TPPW:\n已经设置新的微信窗口句柄为 %1").arg((qulonglong)m_TPPW_hwnd));
+    emit log_message_Debug(QString("Scanner::set_TPPW:\nSet TPPW Hwnd to %1").arg((qulonglong)m_TPPW_hwnd));
+    emit log_message_User(QString("微信窗口句柄已更新为 %1").arg((qulonglong)m_TPPW_hwnd));
 }
 
 void Scanner::set_click_coordinates(const int &x, const int &y)
 {
     this->m_click_coordinate_x = x;
     this->m_click_coordinate_y = y;
-    emit log_message_Debug(QString("Alarm_set_click_coordinates:\n已更新微信电话坐标为 X: %1 Y: %2").arg(m_click_coordinate_x).arg(m_click_coordinate_y));
-    emit log_message_Debug(QString("Alarm_set_click_coordinates:\nSet click button coordinate to X: %1 Y: %2").arg(m_click_coordinate_x).arg(m_click_coordinate_y));
+    emit log_message_Debug(QString("Scanner::set_click_coordinates:\n已更新微信电话坐标为 X: %1 Y: %2").arg(m_click_coordinate_x).arg(m_click_coordinate_y));
+    emit log_message_Debug(QString("Scanner::set_click_coordinates:\nSet click button coordinate to X: %1 Y: %2").arg(m_click_coordinate_x).arg(m_click_coordinate_y));
+    emit log_message_User(QString("更新微信电话坐标已为 X: %1 Y: %2").arg(m_click_coordinate_x).arg(m_click_coordinate_y));
 }
 
-bool Scanner::start()
+bool Scanner::start_work()
 {
     // Do some checks before emit, check if it's all set.
+    if (m_TPPW_title.isEmpty())
+    {
+        emit log_message_Debug("微信窗口标题为空");
+        return false;
+    }
+    if (m_TPPW_hwnd)
+    {
+        emit log_message_Debug("微信窗口句柄为空");
+        return false;
+    }
     emit start_signal();
-    qDebug() << "start";
+    qDebug() << "Scanner::start";
     return true;
 }
 
-bool Scanner::stop()
+bool Scanner::stop_work()
 {
     // Do some checks before emit, check if it's all set.
     emit stop_signal();
@@ -152,29 +274,38 @@ QMap<QString, QPair<QStringList, bool>> Scanner::split_tribe_logs(const QString 
     return map_keywords_to_list;
 }
 
+void Scanner::make_call()
+{
+    // 仍待开发中
+    emit made_call(SINGLE);
+}
+
+void Scanner::make_group_call()
+{
+    // 仍待开发中
+    emit made_call(GROUP);
+}
+
 bool Scanner::check_windows_and_crash()
 {
-    if (!bind_game_window(m_game_window_title))
+    // Check if game window exists.
+    if (!scan_window(m_game_window_hwnd))
     {
-        emit log_message_Debug("Scanner::check_windows_and_crash: \n无法绑定游戏窗口！ // Unable to bind game window!");
+        emit log_message_Debug("Scanner::check_windows_and_crash: \n游戏窗口句柄对应窗口不存在！ // Unable to find game window!");
         emit find_window_failed(GAME);
         return false;
     }
-    if (!m_TPPW_hwnd) {
-        emit send_warn("Scanner::check_windows_and_crash: \n通讯平台窗口句柄不存在！ // Alarm platform window handle is missing!");
+    // Check if TPPW exists.
+    if (!scan_window(m_TPPW_hwnd))
+    {
+        emit log_message_Debug("Scanner::check_windows_and_crash: \n通讯平台窗口句柄对应窗口不存在！ // Unable to find TPPW!");
         emit find_window_failed(TPPW);
         return false;
     }
-    if (scan_crash_windows()) {
+    // Check if crash windows exist.
+    if (scan_crash_windows())
+    {
         emit game_crashed();
-        return false;
-    }
-    if (!scan_window(m_game_window_hwnd)) {
-        emit find_window_failed(GAME);
-        return false;
-    }
-    if (!scan_window(m_TPPW_hwnd)) {
-        emit find_window_failed(TPPW);
         return false;
     }
     emit log_message_Debug("Scanner::check_windows_and_crash: \n全部验证通过 // All validations passed");
@@ -189,50 +320,23 @@ bool Scanner::bind_game_window(const QString &title)
     else return false;
 }
 
-bool Scanner::capture_and_analyze(QString &ocr_result_1, QString &ocr_result_2, QImage &pic_1, QImage &pic_2, QImage &screenshot)
-{
-    RECT rect;
-    if (!GetWindowRect(m_game_window_hwnd, &rect))
-    {
-        emit log_message_Debug("Scanner::capture_and_analyze: \n获取窗口矩形失败 // Failed to get window rect");
-        return false;
-    }
-    if (!analyze_game_window(m_game_window_hwnd, ocr_result_1, ocr_result_2, pic_1, pic_2, screenshot))
-    {
-        emit log_message_Debug("Scanner::capture_and_analyze: \n分析游戏窗口失败 // analyzeGameWindow failed");
-        return false;
-    }
-    // 自动打开部落日志重试 / Retry opening tribe log if needed
-    if (!ensure_tribe_log_open())
-        return false;
-    // 检测错误关键词（超时/断连） / Detect error keywords
-    for (const QString &kw : m_game_timeout_keywords) {
-        if (!kw.isEmpty() && ocr_result_2.contains(kw, Qt::CaseInsensitive)) {
-            emit log_message_Debug("Scanner::capture_and_analyze: \n检测到连接丢失或超时 // Detected timeout: " + kw);
-            emit log_message_User("游戏已掉线！");
-            emit game_timeout();
-            return false;
-        }
-    }
-    return true;
-}
-
 bool Scanner::ensure_tribe_log_open()
 {
     int tries = 0;
     QString OCR_result;
-    QImage game_screenshot;
+    QImage game_screenshot, dummy_image;
     if (!print_window(m_game_window_hwnd, game_screenshot))
     {
         emit log_message_Debug("Scanner::ensure_tribe_log_open:\n截图失败 // Capture failed!");
         return false;
     }
-    if (!OCR_area_T(game_screenshot, OCR_result))
+    if (!OCR_area_T(game_screenshot, OCR_result, dummy_image))
     {
         emit log_message_Debug("Scanner::ensure_tribe_log_open:\nOCR failed");
         return false;
     }
-    while (OCR_result.isEmpty() && tries < 10) {
+    while (OCR_result.isEmpty() && tries < 10)
+    {
         emit log_message_Debug("Scanner::ensure_tribe_log_open:\n部落日志未打开，尝试自动打开 // Tribe log not open, retry");
         if (!scan_window(m_game_window_hwnd))
         {
@@ -247,7 +351,7 @@ bool Scanner::ensure_tribe_log_open()
             emit log_message_Debug("Scanner::ensure_tribe_log_open:\n截图失败 // Capture failed!");
             return false;
         }
-        if (!OCR_area_T(game_screenshot, OCR_result))
+        if (!OCR_area_T(game_screenshot, OCR_result, dummy_image))
         {
             emit log_message_Debug("Scanner::ensure_tribe_log_open:\nOCR failed");
             return false;
@@ -281,7 +385,7 @@ bool Scanner::check_parasaurolophus_alarm(const QString &ocr_result, QString &ke
 
 void Scanner::handle_parasaurolophus_alert(const QString &keyword)
 {
-    QString message = "Alarm_doOneRound:\n副栉龙警报关键词检测到: " + keyword + " // Parasaurolophus keyword detected";
+    QString message = "Scanner::handle_parasaurolophus_alert:\n副栉龙警报关键词检测到: " + keyword + " // Parasaurolophus keyword detected";
     send_text(message);
     emit play_alarm_sound_P();
 }
@@ -289,7 +393,8 @@ void Scanner::handle_parasaurolophus_alert(const QString &keyword)
 void Scanner::handle_tribe_alerts(const QImage &screenshot, const QMap<QString, QPair<QStringList, bool> > &logs_map)
 {
     // 遍历 map_KwToLogList，对每个关键词 matched_keyword，只发一次合并预告
-    for (auto it = logs_map.constBegin(); it != logs_map.constEnd(); ++it) {
+    for (auto it = logs_map.constBegin(); it != logs_map.constEnd(); ++it)
+    {
         const QString &matched_keyword = it.key();
         const QList<QString> &logs = it.value().first; // e.g. ["[Day 1,10:05:07:] foo", "[Day 1,10:05:10:] bar", ...]
 
@@ -318,19 +423,22 @@ void Scanner::handle_tribe_alerts(const QImage &screenshot, const QMap<QString, 
 
         tribeText += "----LOG----\n";
         // 再把所有实际日志内容一行行拼接进去
-        for (const QString &oneLine : logs) {
+        for (const QString &oneLine : logs)
+        {
             tribeText += oneLine + "\n";
         }
         tribeText += "----LOG----\n\n";
 
         tribeText += "—— K_AlarmBot ——";
 
-        if (m_need_text) {
+        if (m_need_text)
+        {
             emit increase_alarm_count();
             send_text(tribeText);
             send_image(screenshot);
         }
-        if (m_need_call && is_serious) {
+        if (m_need_call && is_serious)
+        {
             if (m_is_group_call) {
                 make_group_call();
             }
@@ -340,6 +448,184 @@ void Scanner::handle_tribe_alerts(const QImage &screenshot, const QMap<QString, 
         }
         emit play_alarm_sound_log();
     }
+}
+
+QString Scanner::make_time_stamp()
+{
+    return QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+}
+
+void Scanner::handle_start_signal()
+{
+    this->m_first_round = true;
+    if (!m_cycle_timer)
+    {
+        m_cycle_timer = new QTimer(this);
+        if (m_cycle_timer) emit log_message_Debug("Scanner::handle_start_signal:\n已在栈上声明了一个新的cycle_timer指针！");
+        m_cycle_timer->setInterval(m_mCycle_timer_interval);
+        m_cycle_timer_conn = connect(m_cycle_timer, &QTimer::timeout, this, &Scanner::scan);
+    }
+    if (!m_call_member_check_timer)
+    {
+        m_call_member_check_timer = new QTimer(this);
+        if (m_call_member_check_timer)
+            emit log_message_Debug("Scanner::handle_start_signal:\n已在栈上声明了一个新的call_member_checkt_imer指针！");
+        m_call_member_check_timer->setInterval(m_mCall_member_timer_interval);
+        m_call_member_check_timer_conn = connect(m_call_member_check_timer, &QTimer::timeout, this, &Scanner::refresh_call_member);
+    }
+    if (!m_cycle_timer->isActive())
+    {
+        m_cycle_timer->start();
+        if (m_cycle_timer->isActive())
+        {
+            emit log_message_Debug("Scanner::handle_start_signal:\n监控循环启动！");
+        }
+    }
+    else
+    {
+        emit log_message_Debug("Scanner::handle_start_signal:\n监控循环已在运行！");
+    }
+    if (!m_call_member_check_timer->isActive())
+    {
+        m_call_member_check_timer->start();
+        if (m_call_member_check_timer->isActive())
+        {
+            emit log_message_Debug("Scanner::handle_start_signal:\n群呼成员监控启动！");
+        }
+    }
+    else
+    {
+        emit log_message_Debug("Scanner::handle_start_signal:\n群呼成员监控已在运行！");
+    }
+}
+
+void Scanner::handle_stop_signal()
+{
+    if (m_cycle_timer)
+    {
+        if (m_cycle_timer->isActive())
+        {
+            m_cycle_timer->stop();
+        }
+        disconnect(m_cycle_timer_conn);
+        m_cycle_timer->deleteLater();
+        m_cycle_timer = nullptr;
+    }
+    if (m_call_member_check_timer)
+    {
+        if (m_call_member_check_timer->isActive())
+        {
+            m_call_member_check_timer->stop();
+        }
+        disconnect(m_call_member_check_timer_conn);
+        m_call_member_check_timer->deleteLater();
+        m_call_member_check_timer = nullptr;
+    }
+    if (!(m_cycle_timer || m_call_member_check_timer))
+    {
+        emit log_message_Debug("Scanner::handle_stop_signal:\n两个QTimer指针均已被delete");
+    }
+    else
+    {
+        if (!m_cycle_timer && !m_call_member_check_timer)
+        {
+            emit log_message_Debug("Scanner::handle_stop_signal:\n两个QTimer指针均未被delete");
+        }
+        else if (!m_cycle_timer)
+        {
+            emit log_message_Debug("Scanner::handle_stop_signal:\nm_cycle_timer指针未被delete");
+        }
+        else
+        {
+            emit log_message_Debug("Scanner::handle_stop_signal:\nm_call_member_check_timer指针未被delete");
+        }
+    }
+}
+
+void Scanner::scan()
+{
+    if (!bind_game_window(m_game_window_title))
+    {
+        emit log_message_Debug("Scanner::scan: \n无法绑定游戏窗口！ // Unable to bind game window!");
+        emit find_window_failed(GAME);
+        return;
+    }
+    if (!m_TPPW_hwnd) {
+        emit send_warn("Scanner::scan: \n通讯平台窗口句柄不存在！ // Alarm platform window handle is missing!");
+        emit TPPW_hwnd_failed();
+        return;
+    }
+    if (!check_windows_and_crash())
+    {
+        emit log_message_Debug("Scanner::scan:\n游戏窗口未就绪，本轮检测终止");
+        return;
+    }
+    QImage game_screenshot, area_P, area_log;
+    QString result_P, result_log, keyword_p;
+    if(!print_window(m_game_window_hwnd, game_screenshot))
+    {
+        emit log_message_Debug("Scanner::scan: \n截图失败 // Unable to take screenshot");
+        return;
+    }
+    if (!OCR_area_P(game_screenshot, result_P, area_P))
+    {
+        emit log_message_Debug("Scanner::scan: \n副栉龙区域OCR失败 // OCR parasaurolophus area faild");
+        return;
+    }
+    if (!ensure_tribe_log_open())
+    {
+        emit log_message_Debug("Scanner::scan: \n部落日志无法打开 // Unable to open tribe log");
+        return;
+    }
+    if (!OCR_area_T(game_screenshot, result_log, area_log))
+    {
+        emit log_message_Debug("Scanner::scan: \n部落日志区域OCR失败 // OCR tribe log area faild");
+        return;
+    }
+    if (check_parasaurolophus_alarm(result_P, keyword_p))
+    {
+        if (m_need_text)
+        {
+            QString message = QString("—————— K_AlarmBot ——————\n\n"
+                                      "%1 \n(Key: %2)\n----------------------------------\n"
+                                      "Attention: Parasaurolophus has detected the enemy!\n"
+                                      "副栉龙发现敌人，请留意！\n"
+                                      "RAW Result\n[%3]\n\n"
+                                      "—————— K_AlarmBot ——————")
+                                        .arg(make_time_stamp())
+                                        .arg(keyword_p)
+                                        .arg(result_P);
+            send_text(message);
+        }
+    }
+    if (result_log.isEmpty())
+    {
+        emit log_message_Debug("Scanner::scan: \n部落日志OCR结果为空，本轮检测终止");
+        return;
+    }
+    if (in_game_error(result_log))
+    {
+        emit log_message_Debug("Scanner::scan: \n部落日志OCR结果中检测到游戏掉线，本轮检测终止");
+        return;
+    }
+    QMap<QString, QPair<QStringList, bool>> tribe_log_result_map = split_tribe_logs(result_log);
+    if (tribe_log_result_map.isEmpty())
+    {
+        emit log_message_Debug("Scanner::scan: \n部落日志OCR结果中未侦测到关键词，本轮检测已正常结束");
+    }
+    else
+    {
+        if (!first_round())
+        {
+            handle_tribe_alerts(game_screenshot, tribe_log_result_map);
+        }
+    }
+    emit log_message_Debug("Scanner::scan: \n函数正常执行完毕！");
+}
+
+void Scanner::refresh_call_member()
+{
+    emit return_call_member(m_call_members);
 }
 
 
