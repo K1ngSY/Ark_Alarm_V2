@@ -15,6 +15,7 @@ SOURCES += \
     dashboard.cpp \
     motion.cpp \
     scanner.cpp \
+    sender.cpp \
     utility.cpp \
     visual.cpp
 
@@ -23,6 +24,7 @@ HEADERS += \
     kworker.h \
     motion.h \
     scanner.h \
+    sender.h \
     utility.h \
     visual.h
 
