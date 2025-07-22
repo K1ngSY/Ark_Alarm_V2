@@ -493,4 +493,5 @@ bool check_donwload(HWND game_hwnd)
 bool check_connection_health(HWND game_hwnd)
 {
     // 此函数检测的是重连游戏的时候的框框
+    // 等待进一步完善
 }
