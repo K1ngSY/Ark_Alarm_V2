@@ -6,17 +6,29 @@
 #include <QThread>
 #include <QRegularExpression>
 #include <QDateTime>
+#include <QCoreApplication>
+#include <QFile>
 Scanner::Scanner(QObject *parent)
     : KWorker{parent}
 {
-    this->m_mCycle_timer_interval = 10000; // 循环时间暂时定为10秒一次
-    this->m_mCall_member_timer_interval = 500;
+    // 所有指针在构造函数里需要全部赋值为 nullptr
+    this->m_mCycle_timer_interval       = 10000; // 主任务循环时间暂时定为10秒一次
+    this->m_mCall_member_timer_interval = 2000;  // 群呼成员刷新Timer
+
     this->m_call_member_check_timer = nullptr;
-    this->m_cycle_timer = nullptr;
+    this->m_cycle_timer             = nullptr;
+
     this->m_is_group_call = false;
-    this->m_need_call = false;
-    this->m_need_text = false;
-    this->m_first_round = true;
+    this->m_need_call     = false;
+    this->m_need_text     = false;
+    this->m_first_round   = true;
+
+    this->m_click_coordinate_x = 20;
+    this->m_click_coordinate_y = 20;
+
+    // 设置持久化文件存放路径（程序所在目录下）
+    m_log_file_path = QCoreApplication::applicationDirPath() + "/tribe_logs.txt";
+
     this->m_call_members = "[占位符]注意：您仍未设置群呼成员！";
     this->m_game_timeout_keywords << "HOST"
                                   << "CONNECTION"
@@ -122,9 +134,7 @@ Scanner::Scanner(QObject *parent)
 }
 
 Scanner::~Scanner()
-{
-    emit stop_signal();
-}
+{}
 
 void Scanner::set_TPPW(const QString &title, HWND TPPW_hwnd)
 {
@@ -274,15 +284,107 @@ QMap<QString, QPair<QStringList, bool>> Scanner::split_tribe_logs(const QString 
     return map_keywords_to_list;
 }
 
+bool Scanner::append_new_log(const QString &ts, const QString &content)
+{
+    QFile file(m_log_file_path);
+    if (!file.open(QIODevice::ReadWrite | QIODevice::Text)) {
+        emit log_message_Debug("Scanner::append_new_log:\n无法打开持久化本地日志文件：" + m_log_file_path);
+        return false;
+    }
+    else
+    {
+        emit log_message_Debug(QString("Scanner::append_new_log:\n已打开位于 %1 的本地日志文件").arg(m_log_file_path));
+    }
+
+    // 1) 先检查文件中是否已有该时间戳
+    QTextStream in(&file);
+    bool exists = false;
+    while (!in.atEnd()) {
+        QString line = in.readLine();
+        if (line.startsWith(ts + "\t")) {
+            exists = true;
+            break;
+        }
+    }
+
+    // 2) 如果不存在，则移动到末尾，写入新条目
+    if (!exists) {
+        QTextStream out(&file);
+        file.seek(file.size());
+        out << ts << "\t" << content << "\n";
+        return true;
+    }
+    return false;
+}
+
+void Scanner::send_text(const QString &msg)
+{
+    emit s_send_text(m_game_window_hwnd, msg);
+    emit log_message_Debug(QString("Scanner::send_text: \n已发送一条信息：\n%1").arg(msg));
+}
+
+void Scanner::send_image(const QImage &img)
+{
+    emit s_send_image(m_game_window_hwnd, img);
+    emit log_message_Debug(QString("Scanner::send_text: \n已发送一张图片"));
+}
+
 void Scanner::make_call()
 {
-    // 仍待开发中
+    left_click(m_game_window_hwnd, m_click_coordinate_x, m_click_coordinate_y);
     emit made_call(SINGLE);
 }
 
 void Scanner::make_group_call()
 {
-    // 仍待开发中
+    left_click(m_game_window_hwnd, m_click_coordinate_x, m_click_coordinate_y);
+    //等待弹窗完全出现.
+    QThread::msleep(300);
+    // 1) 找到“微信选择成员”对话框.
+    std::wstring title = QStringLiteral("微信选择成员").toStdWString();
+    HWND dlg = FindWindowW(nullptr, title.c_str());
+    if (!dlg) {
+        emit log_message_Debug("Scanner::make_group_call:\n无法找到“微信选择成员”窗口");
+        return;
+    }
+    SetForegroundWindow(dlg);
+    QThread::msleep(30);
+
+    // 2) 获取当前屏幕分辨率，计算横/纵缩放比例.
+    int screenW = GetSystemMetrics(SM_CXSCREEN);
+    int screenH = GetSystemMetrics(SM_CYSCREEN);
+    double scaleX = screenW / 1920.0;
+    double scaleY = screenH / 1080.0;
+
+    // 3) 解析用户输入的成员并依次搜索点击.
+    QStringList list = m_call_members.split(",", Qt::SkipEmptyParts);
+    for (const QString &s : list) {
+        int baseX = 183;
+        int baseY = 63;
+        left_click(dlg, int(baseX * scaleX), int(baseY * scaleY));
+        emit log_message_Debug(QString("Scanner::make_group_call:\n点击搜索框，坐标=(%1, %2)").arg(int(baseX * scaleX)).arg(int(baseY * scaleY)));
+        QThread::msleep(rand()%10);
+        paste_text(s.trimmed());
+        emit log_message_Debug(QString("Scanner::make_group_call:\n粘贴用户名 %1").arg(s.trimmed()));
+        baseX = 127;
+        baseY = 115;
+        left_click(dlg, int(baseX * scaleX), int(baseY * scaleY));
+        emit log_message_Debug(QString("Scanner::make_group_call:\n点击首位，坐标=(%1, %2)").arg(int(baseX * scaleX)).arg(int(baseY * scaleY)));
+        QThread::msleep(rand()%10);
+        baseX = 313;
+        baseY = 59;
+        left_click(dlg, int(baseX * scaleX), int(baseY * scaleY));
+        emit log_message_Debug(QString("Scanner::make_group_call:\n点击清除，坐标=(%1, %2)").arg(int(baseX * scaleX)).arg(int(baseY * scaleY)));
+        QThread::msleep(rand()%10);
+    }
+
+    // 4) 点击“确定”按钮（基准坐标 X,Y）.
+    int btnX = int(447 * scaleX);
+    int btnY = int(524 * scaleY);
+    emit log_message_Debug(QString("Scanner::make_group_call:\n点击确定呼叫按钮，坐标=(%1, %2)").arg(btnX).arg(btnY));
+    left_click(dlg, btnX, btnY);
+
+    emit log_message_Debug("群呼完成");
     emit made_call(GROUP);
 }
 
@@ -314,10 +416,18 @@ bool Scanner::check_windows_and_crash()
 
 bool Scanner::bind_game_window(const QString &title)
 {
-    std::wstring w = title.toStdWString();
-    this->m_game_window_hwnd = ::FindWindowW(nullptr, w.c_str());
-    if (this->m_game_window_hwnd) return true;
-    else return false;
+    // std::wstring w = title.toStdWString();
+    // this->m_game_window_hwnd = ::FindWindowW(nullptr, w.c_str());
+    // if (this->m_game_window_hwnd) return true;
+    // else return false;
+    if (!bind_window(title, m_game_window_hwnd))
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
 }
 
 bool Scanner::ensure_tribe_log_open()
@@ -383,10 +493,19 @@ bool Scanner::check_parasaurolophus_alarm(const QString &ocr_result, QString &ke
     return false;
 }
 
-void Scanner::handle_parasaurolophus_alert(const QString &keyword)
+void Scanner::handle_parasaurolophus_alert(const QString &OCR_resultconst, const QString &keyword)
 {
-    QString message = "Scanner::handle_parasaurolophus_alert:\n副栉龙警报关键词检测到: " + keyword + " // Parasaurolophus keyword detected";
+    QString message = QString("—————— K_AlarmBot ——————\n\n"
+                              "%1 \n(Key: %2)\n----------------------------------\n"
+                              "Attention: Parasaurolophus has detected the enemy!\n"
+                              "副栉龙发现敌人，请留意！\n"
+                              "RAW Result\n[%3]\n\n"
+                              "—————— K_AlarmBot ——————")
+                          .arg(make_time_stamp())
+                          .arg(keyword)
+                          .arg(OCR_resultconst);
     send_text(message);
+    emit increase_alarm_count();
     emit play_alarm_sound_P();
 }
 
@@ -446,8 +565,9 @@ void Scanner::handle_tribe_alerts(const QImage &screenshot, const QMap<QString, 
                 make_call();
             }
         }
-        emit play_alarm_sound_log();
     }
+    emit increase_alarm_count();
+    emit play_alarm_sound_log();
 }
 
 QString Scanner::make_time_stamp()
@@ -586,16 +706,7 @@ void Scanner::scan()
     {
         if (m_need_text)
         {
-            QString message = QString("—————— K_AlarmBot ——————\n\n"
-                                      "%1 \n(Key: %2)\n----------------------------------\n"
-                                      "Attention: Parasaurolophus has detected the enemy!\n"
-                                      "副栉龙发现敌人，请留意！\n"
-                                      "RAW Result\n[%3]\n\n"
-                                      "—————— K_AlarmBot ——————")
-                                        .arg(make_time_stamp())
-                                        .arg(keyword_p)
-                                        .arg(result_P);
-            send_text(message);
+            handle_parasaurolophus_alert(result_P, keyword_p);
         }
     }
     if (result_log.isEmpty())

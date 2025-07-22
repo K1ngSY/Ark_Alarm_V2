@@ -5,8 +5,8 @@
 #include <opencv2/opencv.hpp>
 #include <windows.h>
 
-cv::Mat QImage_to_cvMat(const QImage &inImage);
-QImage CvMat_to_QImage(const cv::Mat &inMat);
+cv::Mat QImage_to_cvMat(const QImage &in_image);
+QImage CvMat_to_QImage(const cv::Mat &in_mat);
 // OCR Parasaurolophus and tribe log in once.
 bool OCR_image(const QImage &input_image, QString &recognized_text);
 bool OCR_area_P(const QImage &input_full_game_window, QString &recognized_text, QImage &debug_roi);
@@ -26,6 +26,6 @@ bool check_server_mod(HWND game_hwnd, QImage &img);
 // (a sign that the mod is being downloaded).
 bool check_donwload(HWND game_hwnd);
 // Check if there is a connection failed dialog (OCR based).
-bool check_connection_health(HWND gameHwnd);
+bool check_connection_health(HWND game_hwnd);
 
 #endif // VISUAL_H

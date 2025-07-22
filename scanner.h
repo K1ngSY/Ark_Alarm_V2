@@ -34,8 +34,6 @@ public:
      * @brief Constructs an Scanner object.
      *        构造 Scanner 对象。
      * @param parent        Parent QObject pointer. 父对象指针。
-     * @param TPPW_title       Title of the alarm platform window. 警报平台窗口标题。
-     * @param TPPW_hwnd        Handle of the alarm platform window. 警报平台窗口句柄。
      */
     explicit Scanner(QObject *parent = nullptr);
     /**
@@ -65,6 +63,7 @@ private:
     QString m_TPPW_title;
     QString m_game_window_title;
     QString m_call_members;
+    // 持久化日志文件路径
     QString m_log_file_path;
 
     QStringList m_all_log_keywords;
@@ -101,8 +100,8 @@ private:
     QMap<QString, QPair<QStringList, bool>> split_tribe_logs(const QString &raw_tribe_log);
     /// It appends log to the locale file if it's new log.
     bool append_new_log(const QString &ts, const QString &content);
-    void send_text (const QString &msg) const;
-    void send_image(const QImage &img) const;
+    void send_text (const QString &msg);
+    void send_image(const QImage &img);
     void make_call();
     void make_group_call();
     bool allow_this_keyword (const QString &key);
@@ -145,7 +144,7 @@ private:
             return false;
         }
     }
-    void handle_parasaurolophus_alert(const QString &keyword);
+    void handle_parasaurolophus_alert(const QString &OCR_resultconst, const QString &keyword);
     // 本函数已经包含了对用户是否选择Text和call的判断.
     void handle_tribe_alerts(const QImage &screenshot, const QMap<QString, QPair<QStringList, bool>> &logs_map);
     QString make_time_stamp();
@@ -179,6 +178,9 @@ signals:
     void made_call(call_type);
     void increase_round_count();
     void increase_alarm_count();
+    // 发送警报的信号需要在主窗内连接到sender线程.
+    void s_send_text(HWND hwnd, QString msg);
+    void s_send_image(HWND hwnd, QImage img);
 };
 
 #endif // SCANNER_H
