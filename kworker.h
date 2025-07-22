@@ -8,14 +8,14 @@ class KWorker : public QObject
     Q_OBJECT
 public:
     explicit KWorker(QObject *parent = nullptr);
-    // only access to start_work its assign.
+    // only access to start its work.
     // must emit "start_signal".
     virtual bool start_work()
     {
         emit start_signal();
         return true;
     }
-    // only access to stop_work itself.
+    // only access to stop itself.
     // must emit "stop_signal".
     virtual bool stop_work()
     {
