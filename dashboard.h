@@ -22,5 +22,8 @@ private slots:
 
 private:
     Ui::DashBoard *ui;
+
+protected:
+    void closeEvent(QCloseEvent *event) override;
 };
 #endif // DASHBOARD_H
