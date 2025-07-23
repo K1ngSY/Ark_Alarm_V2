@@ -28,4 +28,6 @@ bool check_donwload(HWND game_hwnd);
 // Check if there is a connection failed dialog (OCR based).
 bool check_connection_health(HWND game_hwnd);
 
+bool check_5_cards(HWND game_hwnd);
+
 #endif // VISUAL_H

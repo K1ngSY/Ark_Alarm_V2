@@ -494,4 +494,54 @@ bool check_connection_health(HWND game_hwnd)
 {
     // 此函数检测的是重连游戏的时候的框框
     // 等待进一步完善
+    // 连接健康就返回true 连接有问题有问题框框就返回false
+    return true;
+}
+
+bool check_5_cards(HWND game_hwnd)
+{
+    QImage sc, roi;
+    if (!print_window(game_hwnd, sc))
+    {
+        qDebug() << "check_5_cards:\n截图失败";
+        return false;
+    }
+    RECT rc; GetWindowRect(game_hwnd, &rc);
+    int w = rc.right - rc.left, h = rc.bottom - rc.top;
+    roi = sc.copy(w / 1920 * 825, h / 1080 * 698, w / 1920 * 270, h / 1080 * 76);
+
+    // 图像处理部分
+    cv::Mat m = QImage_to_cvMat(roi);
+    std::vector<cv::Mat> ch;
+    cv::split(m, ch);
+    if (ch.size() < 3)
+    {
+        qDebug() << "check_server_mod:\n拆通道时通道不足";
+        return false;
+    }
+    // 用蓝色通道(索引 0)
+    roi = CvMat_to_QImage(ch[0]);
+    // 转换负色 白底黑字
+    roi.invertPixels(QImage::InvertRgb);
+
+    QString result;
+    if (!OCR_image(roi, result))
+    {
+        qDebug() << "check_5_cards:\nOCR失败";
+        return false;
+    }
+    if (result.isEmpty())
+    {
+        qDebug() << "check_5_cards:\nOCR内容为空，返回默认值true";
+        return true;
+    }
+    QStringList kewords = {"JOINGAME", "JOIN GAME", "JOIN", "GAME", "加入游戏", "加入", "游戏"};
+    for (QString key : kewords)
+    {
+        if (result.contains(key, Qt::CaseInsensitive))
+        {
+            return true;
+        }
+    }
+    return false;
 }
