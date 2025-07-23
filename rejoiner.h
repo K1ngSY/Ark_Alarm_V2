@@ -10,9 +10,24 @@ class Rejoiner : public KWorker
 public:
     explicit Rejoiner(QObject *parent = nullptr);
     bool start_work() override;
-    inline void set_game_hwnd(HWND hwnd) {this->m_game_hwnd = hwnd;}
-    inline void set_server_ID(const QString &ID) {this->m_server_ID = ID;}
-    inline void set_has_mod(const bool &has_mod) {this->m_has_mod = has_mod;}
+    inline void set_game_hwnd(HWND hwnd)
+    {
+        this->m_game_hwnd = hwnd;
+        emit log_message_Debug(QString("Rejoiner::set_game_hwnd:\n已设置游戏窗口句柄为%1").arg((qulonglong)m_game_hwnd));
+        emit log_message_User(QString("已设置游戏窗口句柄为%1").arg((qulonglong)m_game_hwnd));
+    }
+    inline void set_server_ID(const QString &ID)
+    {
+        this->m_server_ID = ID;
+        emit log_message_Debug(QString("Rejoiner::set_game_hwnd:\n已设置服务器ID为%1").arg(m_server_ID));
+        emit log_message_User(QString("已设置服务器ID为%1").arg(m_server_ID));
+    }
+    inline void set_has_mod(const bool &has_mod)
+    {
+        this->m_has_mod = has_mod;
+        emit log_message_Debug(QString("Rejoiner::set_game_hwnd:\n已设置服务器Mod状态为[%1]").arg(m_has_mod? "含Mod" : "不含Mode"));
+        emit log_message_User(QString("已设置服务器Mod状态为[%1]").arg(m_has_mod? "含Mod" : "不含Mode"));
+    }
 private:
     HWND m_game_hwnd;
     QString m_server_ID;
