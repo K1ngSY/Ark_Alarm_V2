@@ -493,8 +493,59 @@ bool check_donwload(HWND game_hwnd)
 bool check_connection_health(HWND game_hwnd)
 {
     // 此函数检测的是重连游戏的时候的框框
-    // 等待进一步完善
     // 连接健康就返回true 连接有问题有问题框框就返回false
+    QImage fullScreen;
+    if (!print_window(game_hwnd, fullScreen))
+    {
+        qDebug() << "check_connection_health:\n截图失败";
+        return false;
+    }
+    RECT rect;
+    if (!GetWindowRect(game_hwnd, &rect))
+    {
+        qDebug() << "check_connection_health:\nFailed to get window rect";
+        return false;
+    }
+    int width = rect.right - rect.left;
+    int height = rect.bottom - rect.top;
+    QImage roi = fullScreen.copy(width * 500 / 1286,
+                                 height * 210 / 723,
+                                 width * 286 / 1286,
+                                 height * 73 / 723);
+    // 图像处理
+    cv::Mat m = QImage_to_cvMat(roi);
+    std::vector<cv::Mat> ch;
+    cv::split(m, ch);
+    if (ch.size() < 3)
+    {
+        qDebug() << "check_connection_health:\n拆通道时通道不足";
+        return false;
+    }
+    // 用蓝色通道(索引 0)
+    roi = CvMat_to_QImage(ch[0]);
+    // 转换负色 白底黑字
+    roi.invertPixels(QImage::InvertRgb);
+    // 进入OCR流程
+    QString recognizedText;
+    if (!OCR_image(roi, recognizedText))
+    {
+        qDebug() << "check_connection_health:\nOCR识别失败！";
+        return false;
+    }
+    if (!recognizedText.isEmpty())
+    {
+        recognizedText = recognizedText.toUpper();
+        QStringList keywords = {"Connection Failed", "Connection", "Failed", "连接失败", "连接", "失败"};
+        for (QString key : keywords)
+        {
+            if (recognizedText.contains(key, Qt::CaseInsensitive))
+                return false;
+        }
+    }
+    else
+    {
+        qDebug() << "check_connection_health:\nOCR连接健康时识别内容为空";
+    }
     return true;
 }
 
