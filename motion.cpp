@@ -225,3 +225,13 @@ void ctrl_v()
     SendInput(4, inputs, sizeof(INPUT));
     QThread::msleep(100);
 }
+
+void click_center(HWND aim_hwnd)
+{
+    RECT r;
+    ::GetWindowRect(aim_hwnd, &r);
+    int cx = (r.left + r.right) / 2;
+    int cy = (r.top  + r.bottom) / 2;
+    // 点击
+    left_click(aim_hwnd, cx, cy);
+}

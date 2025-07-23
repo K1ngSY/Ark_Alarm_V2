@@ -8,6 +8,8 @@ void click_center_and_keyL(HWND aim_hwnd);
 
 void click_center_and_ESC(HWND aim_hwnd);
 
+void click_center(HWND aim_hwnd);
+
 void left_click(HWND hwnd, int pos_x, int pos_y);
 
 void paste_text(const QString &message);
