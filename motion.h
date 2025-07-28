@@ -10,7 +10,13 @@ void click_center_and_ESC(HWND aim_hwnd);
 
 void click_center(HWND aim_hwnd);
 
+void click_center_background(HWND aim_hwnd);
+
 void left_click(HWND hwnd, int pos_x, int pos_y);
+
+// Click without forcing the window to foreground. Window must be visible
+// but can stay in background.
+void left_click_background(HWND hwnd, int pos_x, int pos_y);
 
 void paste_text(const QString &message);
 
