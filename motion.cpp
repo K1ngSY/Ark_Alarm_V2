@@ -46,6 +46,25 @@ void left_click(HWND hwnd, int pos_x, int pos_y)
     }
 }
 
+void left_click_background(HWND hwnd, int pos_x, int pos_y)
+{
+    if (!IsWindow(hwnd))
+    {
+        qWarning() << "left_click_background: invalid window";
+        return;
+    }
+    if (IsIconic(hwnd))
+    {
+        qWarning() << "left_click_background: window is minimized";
+        return;
+    }
+
+    LPARAM lParam = MAKELPARAM(pos_x, pos_y);
+    PostMessage(hwnd, WM_MOUSEMOVE, 0, lParam);
+    PostMessage(hwnd, WM_LBUTTONDOWN, MK_LBUTTON, lParam);
+    PostMessage(hwnd, WM_LBUTTONUP, 0, lParam);
+}
+
 void click_center_and_keyL(HWND aim_hwnd)
 {
     RECT r;
@@ -234,4 +253,13 @@ void click_center(HWND aim_hwnd)
     int cy = (r.top  + r.bottom) / 2;
     // 点击
     left_click(aim_hwnd, cx, cy);
+}
+
+void click_center_background(HWND aim_hwnd)
+{
+    RECT r;
+    ::GetWindowRect(aim_hwnd, &r);
+    int cx = (r.left + r.right) / 2;
+    int cy = (r.top  + r.bottom) / 2;
+    left_click_background(aim_hwnd, cx, cy);
 }
