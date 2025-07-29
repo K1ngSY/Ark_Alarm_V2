@@ -57,3 +57,9 @@ bool scan_crash_windows()
         return false;
     }
 }
+
+bool scan_window(const QString &window_title)
+{
+    HWND dummy;
+    return bind_window(window_title, dummy);
+}
