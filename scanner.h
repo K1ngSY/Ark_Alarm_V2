@@ -158,7 +158,7 @@ private slots:
     // Main function!
     void scan();
     void refresh_call_member();
-    void initialize();
+    // void initialize();
 
 signals:
     void text_alarm_sent(const QString &keyword);

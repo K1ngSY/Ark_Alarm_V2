@@ -165,7 +165,7 @@ bool Scanner::start_work()
         emit log_message_Debug("微信窗口标题为空");
         return false;
     }
-    if (m_TPPW_hwnd)
+    if (!m_TPPW_hwnd)
     {
         emit log_message_Debug("微信窗口句柄为空");
         return false;
@@ -386,6 +386,20 @@ void Scanner::make_group_call()
 
     emit log_message_Debug("群呼完成");
     emit made_call(GROUP);
+}
+
+bool Scanner::allow_this_keyword(const QString &key)
+{
+    if (m_alarm_filter.contains(key))
+    {
+        emit log_message_Debug(QString("Scanner::allow_this_keyword:\n关键词“%1”存在于过滤器列表中，值为").arg((!m_alarm_filter[key])? "Allow" : "Blocked"));
+        return !m_alarm_filter[key];
+    }
+    else
+    {
+        emit log_message_Debug(QString("Scanner::allow_this_keyword:\n关键词“%1”不在过滤器列表中，已放行").arg(key));
+        return false;
+    }
 }
 
 bool Scanner::check_windows_and_crash()
