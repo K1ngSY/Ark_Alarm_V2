@@ -2,7 +2,18 @@
 #include <QThread>
 #include <QDebug>
 
+
 void left_click(HWND hwnd, int pos_x, int pos_y)
+{
+    // 0是默认前台点击模式 1是测试版后台点击模式
+    int mode = 0;
+    if (mode == 0)
+        _left_click_mode0(hwnd, pos_x, pos_y);
+    else
+        _left_click_mode1(hwnd, pos_x, pos_y);
+}
+
+void _left_click_mode0(HWND hwnd, int pos_x, int pos_y)
 {
     SetForegroundWindow(hwnd);
     QThread::msleep(200);
@@ -46,7 +57,7 @@ void left_click(HWND hwnd, int pos_x, int pos_y)
     }
 }
 
-void left_click_background(HWND hwnd, int pos_x, int pos_y)
+void _left_click_mode1(HWND hwnd, int pos_x, int pos_y)
 {
     if (!IsWindow(hwnd))
     {
@@ -253,13 +264,4 @@ void click_center(HWND aim_hwnd)
     int cy = (r.top  + r.bottom) / 2;
     // 点击
     left_click(aim_hwnd, cx, cy);
-}
-
-void click_center_background(HWND aim_hwnd)
-{
-    RECT r;
-    ::GetWindowRect(aim_hwnd, &r);
-    int cx = (r.left + r.right) / 2;
-    int cy = (r.top  + r.bottom) / 2;
-    left_click_background(aim_hwnd, cx, cy);
 }
