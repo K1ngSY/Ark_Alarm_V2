@@ -2,6 +2,7 @@
 #define KWORKER_H
 
 #include <QObject>
+#include <atomic>
 
 class KWorker : public QObject
 {
@@ -23,9 +24,19 @@ public:
         return true;
     }
 
+    // 在主线程中调用，用来通知取消
+    virtual void cancel() { m_cancelRequested.store(true); }
+
+    // 每次启动新任务前，都要重置
+    virtual void resetCancel() { m_cancelRequested.store(false); }
+
 private slots:
     virtual void handle_start_signal() = 0;
     virtual void handle_stop_signal() = 0;
+
+protected:
+    std::atomic<bool> m_cancelRequested;
+
 signals:
     // start signals
 

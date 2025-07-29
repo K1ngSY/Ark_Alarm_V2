@@ -28,6 +28,12 @@ public:
         emit log_message_Debug(QString("Rejoiner::set_game_hwnd:\n已设置服务器Mod状态为[%1]").arg(m_has_mod? "含Mod" : "不含Mode"));
         emit log_message_User(QString("已设置服务器Mod状态为[%1]").arg(m_has_mod? "含Mod" : "不含Mode"));
     }
+    inline void cancel() override
+    {
+        m_cancelRequested.store(true);
+        emit log_message_Debug(QString("Rejoiner::cancel:\n原子状态为[%1]").arg(m_cancelRequested.load()? "canceled" : "not canceled"));
+        emit log_message_User(QString("原子状态为[%1]").arg(m_cancelRequested.load()? "canceled" : "not canceled"));
+    }
 private:
     HWND m_game_hwnd;
     QString m_server_ID;
@@ -43,7 +49,7 @@ private:
     void join_without_mod(bool &conn_fail);
 private slots:
     void handle_start_signal() override;
-
+    void handle_stop_signal() override;
 };
 
 #endif // REJOINER_H

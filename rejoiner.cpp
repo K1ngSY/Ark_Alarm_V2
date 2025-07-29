@@ -7,6 +7,7 @@
 Rejoiner::Rejoiner(QObject *parent)
     : KWorker{parent}
 {
+    m_cancelRequested.store(false);
     m_game_hwnd = nullptr;
     m_server_ID = "";
     m_has_mod = false;
@@ -144,25 +145,25 @@ void Rejoiner::join_with_mod(bool &conn_failed)
     emit log_message_User("点击 Mod 下载确认按钮");
 
     // 等待下载完成
-    while (check_donwload(m_game_hwnd) && !QThread::currentThread()->isInterruptionRequested())
+    while (check_donwload(m_game_hwnd) && !m_cancelRequested.load())
     {
         emit log_message_Debug("Rejoiner::join_with_mod:\n正在下载 Mod...");
         emit log_message_User("正在下载 Mod...");
         QThread::msleep(500);
     }
 
-    if (QThread::currentThread()->isInterruptionRequested()) return;
+    if (m_cancelRequested.load()) return;
 
     emit log_message_Debug("Rejoiner::join_with_mod:\n加入游戏中，30秒后重启监控进程！");
     emit log_message_User("加入游戏中，30秒后重启监控进程！");
     int tries = 0;
-    while (!QThread::currentThread()->isInterruptionRequested() && tries++ < 40 && !conn_failed)
+    while (!m_cancelRequested.load() && tries++ < 40 && !conn_failed)
     {
         conn_failed = !check_connection_health(m_game_hwnd);
         QThread::msleep(1500);
     }
 
-    if (QThread::currentThread()->isInterruptionRequested()) return;
+    if (m_cancelRequested.load()) return;
     if (conn_failed) return;
 }
 
@@ -176,23 +177,24 @@ void Rejoiner::join_without_mod(bool &conn_failed)
     left_click(m_game_hwnd, w*88/100, h*88/100);
     QThread::msleep(3000);
 
-    if (QThread::currentThread()->isInterruptionRequested()) return;
+    if (m_cancelRequested.load()) return;
 
     emit log_message_Debug("Rejoiner::join_with_mod:\n加入游戏中，30秒后重启监控进程！");
     emit log_message_User("加入游戏中，30秒后重启监控进程！");
 
     int tries = 0;
-    while (!QThread::currentThread()->isInterruptionRequested() && tries++ < 40 && !conn_failed)
+    while (!m_cancelRequested.load() && tries++ < 40 && !conn_failed)
     {
         conn_failed = !check_connection_health(m_game_hwnd);
         QThread::msleep(1500);
     }
-    if (QThread::currentThread()->isInterruptionRequested()) return;
+    if (m_cancelRequested.load()) return;
     if (conn_failed) return;
 }
 
 void Rejoiner::handle_start_signal()
 {
+    resetCancel();
     if (!scan_window(m_game_hwnd))
     {
         emit log_message_Debug("Rejoiner::handle_start_signal:\n游戏窗口不存在，重连终止！");
@@ -269,7 +271,7 @@ void Rejoiner::handle_start_signal()
             left_click(m_game_hwnd, w / 1920 * 165, h / 1080 * 882);
         }
     }
-    while (conn_failed && !QThread::currentThread()->isInterruptionRequested());
+    while (conn_failed && !m_cancelRequested.load());
     if (!conn_failed)
     {
         emit finished_0();
@@ -281,4 +283,9 @@ void Rejoiner::handle_start_signal()
         emit finished_1("Rejoiner::handle_start_signal:尝试处理重连异常失败");
         return;
     }
+}
+
+void Rejoiner::handle_stop_signal()
+{
+    emit log_message_Debug("Rejoiner::handle_stop_signal:\n收到stop信号但不作相应！本worker请使用cancel()成员函数中止！");
 }
