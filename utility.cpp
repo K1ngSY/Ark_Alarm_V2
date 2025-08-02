@@ -1,5 +1,7 @@
 #include "utility.h"
+#include <QDebug>
 #include <QStringList>
+#include <QScreen>
 
 
 bool bind_window(const QString &title, HWND &windowHwnd)
@@ -62,4 +64,33 @@ bool scan_window(const QString &window_title)
 {
     HWND dummy;
     return bind_window(window_title, dummy);
+}
+
+
+
+bool get_wechat_window_coordinates(HWND hwnd, int y, QPair<int, int> &pair)
+{
+    if (!hwnd)
+    {
+        qDebug() << "get_wechat_window_coordinates:\n窗口句柄无效!";
+        return false;
+    }
+    RECT rect;
+    if(GetWindowRect(hwnd, &rect)) {
+        int width = rect.right - rect.left;
+        int height = rect.bottom - rect.top;
+        QScreen *screen = QGuiApplication::primaryScreen();
+        if (!screen) {
+            qDebug() << "get_wechat_window_coordinates:\n获取屏幕分辨率信息失败!";
+            return false;
+        }
+        QSize screenSize = screen->size();       // 屏幕分辨率，例如 1920x1080
+        int   screenW    = screenSize.width();
+
+        int pos_x = width - screenW / 1920 * 35;
+        int pos_y = y;
+        pair = qMakePair(pos_x, pos_y);
+        return true;
+    }
+    return false;
 }
