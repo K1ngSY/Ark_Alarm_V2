@@ -265,3 +265,33 @@ void click_center(HWND aim_hwnd)
     // 点击
     left_click(aim_hwnd, cx, cy);
 }
+
+void _send_image(HWND hwnd, const QImage &image)
+{
+    if (!hwnd) {
+        qDebug() << "_send_image: Invalid WeChat window handle";
+        return;
+    }
+    SetForegroundWindow(hwnd);
+
+    // 1) 获取客户区尺寸
+    RECT clientRect;
+    if (!GetClientRect(hwnd, &clientRect)) {
+        qDebug() << "_send_image: Failed to get client rect";
+        return;
+    }
+    int width  = clientRect.right  - clientRect.left;
+    int height = clientRect.bottom - clientRect.top;
+
+    // 2) 计算点击位置
+    int clientX = width / 2;
+    int clientY = static_cast<int>(height * 0.9);
+
+    // 3) 发起点击、粘贴图片、回车
+    left_click(hwnd, clientX, clientY);
+    paste_image(image);
+    QThread::msleep(200);
+    press_key(VK_RETURN);
+
+    qDebug() << "_send_image: Image sent";
+}
