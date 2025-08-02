@@ -245,7 +245,7 @@ void Rejoiner::handle_start_signal()
                 return;
             }
         }
-
+        // 此处不是重复检测 仔细读这段的逻辑
         if (has_mod)
         {
             join_with_mod(conn_failed);

@@ -30,13 +30,13 @@ private:
     // Private functions.
     // 此函数只关闭所有崩溃弹窗不关闭游戏.
     void close_crash_windows();
-    bool reboot_game();
-    bool scan_start_button();
+    void start_game();
     bool waitForProcessExit(HWND hwnd);
 
 signals:
     void wait_game_window_timeout();
     void wait_start_button_timeout();
+    void got_game_hwnd(HWND game_hwnd);
 };
 
 #endif // CRASHHANDLER_H

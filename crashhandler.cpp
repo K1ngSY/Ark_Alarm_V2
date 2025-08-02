@@ -9,6 +9,7 @@
 #include <QUrl>
 
 const QString GAME_TITLE = "ArkAscended";
+
 CrashHandler::CrashHandler(QObject *parent)
     : KWorker{parent}
 {
@@ -47,11 +48,10 @@ void CrashHandler::handle_start_signal()
     {
         emit log_message_Debug("CrashHandler::handle_start_signal:\n未发现游戏进程，准备启动游戏");
         emit log_message_User("未发现游戏进程，准备启动游戏");
+        QThread::msleep(3000);
     }
     game_hwnd = nullptr;
-    emit log_message_Debug("CrashHandler::handle_start_signal:\n正在启动游戏");
-    emit log_message_User("正在启动游戏");
-    QDesktopServices::openUrl(QUrl("steam://rungameid/2399830"));
+    start_game();
     bool game_window_found = false;
     emit log_message_Debug("CrashHandler::handle_start_signal:\n等待游戏窗口出现（120 秒）…");
     emit log_message_User("等待游戏窗口出现（120 秒）…");
@@ -61,6 +61,7 @@ void CrashHandler::handle_start_signal()
         {
             emit log_message_Debug("CrashHandler::handle_start_signal:\n收到cancel指令，即将退出");
             emit log_message_User("收到cancel指令，CrashHandler即将终止任务");
+            emit finished_1("CrashHandler::handle_start_signal:被手动终止");
             return;
         }
         if(scan_window(GAME_TITLE))
@@ -72,6 +73,7 @@ void CrashHandler::handle_start_signal()
             {
                 emit log_message_Debug("CrashHandler::handle_start_signal:\n绑定游戏窗口句柄失败，重连游戏终止");
                 emit log_message_User("绑定游戏窗口句柄失败，重连游戏终止");
+                emit finished_1("CrashHandler::handle_start_signal:绑定游戏窗口句柄失败");
                 return;
             }
             break;
@@ -83,22 +85,25 @@ void CrashHandler::handle_start_signal()
         emit wait_game_window_timeout();
         emit log_message_Debug("CrashHandler::handle_start_signal:\n游戏窗口等待超时，重连任务终止");
         emit log_message_User("游戏窗口等待超时，重连任务终止");
+        emit finished_1("CrashHandler::handle_start_signal:游戏窗口等待超时");
         return;
     }
-    emit log_message_Debug("CrashHandler::handle_start_signal:\n开始扫描开始游戏按钮");
-    emit log_message_User("开始扫描开始游戏按钮");
+    emit log_message_Debug("CrashHandler::handle_start_signal:\n扫描开始游戏按钮");
+    emit log_message_User("扫描开始游戏按钮");
     for (int i = 0; i < 10; i++)
     {
         if (m_cancelRequested)
         {
             emit log_message_Debug("CrashHandler::handle_start_signal:\n收到cancel指令，即将退出");
             emit log_message_User("收到cancel指令，CrashHandler即将终止任务");
+            emit finished_1("CrashHandler::handle_start_signal:被手动终止");
             return;
         }
         if (check_start_button(game_hwnd))
         {
             emit log_message_Debug("CrashHandler::handle_start_signal:\n开始游戏按钮已出现，crash handle部分结束");
             emit log_message_User("开始游戏按钮已出现，crash handle部分结束");
+            emit got_game_hwnd(game_hwnd);
             emit finished_0();
             return;
         }
@@ -184,9 +189,11 @@ void CrashHandler::close_crash_windows()
     // end
 }
 
-bool CrashHandler::reboot_game()
+void CrashHandler::start_game()
 {
-
+    emit log_message_Debug("CrashHandler::reboot_game:\n正在启动游戏");
+    emit log_message_User("正在启动游戏");
+    QDesktopServices::openUrl(QUrl("steam://rungameid/2399830"));
 }
 
 bool CrashHandler::waitForProcessExit(HWND hwnd)
