@@ -15,25 +15,34 @@ SOURCES += \
     main.cpp \
     dashboard.cpp \
     motion.cpp \
+    overlaywindow.cpp \
     rejoiner.cpp \
     scanner.cpp \
     sender.cpp \
+    serverlist.cpp \
+    togglebutton.cpp \
     utility.cpp \
-    visual.cpp
+    visual.cpp \
+    windowselectiondialog.cpp
 
 HEADERS += \
     crashhandler.h \
     dashboard.h \
     kworker.h \
     motion.h \
+    overlaywindow.h \
     rejoiner.h \
     scanner.h \
     sender.h \
+    serverlist.h \
+    togglebutton.h \
     utility.h \
-    visual.h
+    visual.h \
+    windowselectiondialog.h
 
 FORMS += \
-    dashboard.ui
+    dashboard.ui \
+    windowselectiondialog.ui
 
 TRANSLATIONS += \
     Ark_Alarm_V2_zh_CN.ts
