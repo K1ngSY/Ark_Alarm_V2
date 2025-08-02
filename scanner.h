@@ -47,6 +47,7 @@ public:
     void set_TPPW(const QString &title, HWND TPPW_hwnd);
     /// Sets the click coordinates for making calls. 设置发起电话的坐标。
     void set_click_coordinates(const int &x, const int &y);
+    void set_click_pos_y(const int &y);
 
     /// Reminder: start_work function alse starts call members monitoring.
     bool start_work() override;
@@ -149,7 +150,8 @@ private:
     void handle_tribe_alerts(const QImage &screenshot, const QMap<QString, QPair<QStringList, bool>> &logs_map);
     QString make_time_stamp();
 public slots:
-
+    void set_filter_key(QString key, bool status);
+    void full_test();
 private slots:
     /// The real function launches the main assign.
     void handle_start_signal() override;

@@ -8,6 +8,7 @@
 #include <QDateTime>
 #include <QCoreApplication>
 #include <QFile>
+
 Scanner::Scanner(QObject *parent)
     : KWorker{parent}
 {
@@ -95,7 +96,6 @@ Scanner::Scanner(QObject *parent)
 
     m_alarm_filter["demoted"] = false;
     m_alarm_filter["降职"] = false;
-
     // 公开盘子
     m_alarm_filter["to public"] = false;
     // 私有盘子
@@ -155,6 +155,25 @@ void Scanner::set_click_coordinates(const int &x, const int &y)
     emit log_message_Debug(QString("Scanner::set_click_coordinates:\n已更新微信电话坐标为 X: %1 Y: %2").arg(m_click_coordinate_x).arg(m_click_coordinate_y));
     emit log_message_Debug(QString("Scanner::set_click_coordinates:\nSet click button coordinate to X: %1 Y: %2").arg(m_click_coordinate_x).arg(m_click_coordinate_y));
     emit log_message_User(QString("更新微信电话坐标已为 X: %1 Y: %2").arg(m_click_coordinate_x).arg(m_click_coordinate_y));
+}
+
+void Scanner::set_click_pos_y(const int &y)
+{
+    if (!m_TPPW_hwnd)
+    {
+        log_message_Debug("Scanner::set_click_pos_y:\n未配置TPPW窗口句柄，修改点击位置无效");
+        log_message_User("未配置微信窗口句柄，修改点击位置无效");
+        return;
+    }
+    QPair<int ,int> coordinates;
+    if (!get_wechat_window_coordinates(m_TPPW_hwnd, y, coordinates))
+    {
+        log_message_Debug("Scanner::set_click_pos_y:\n 获取点击坐标失败!");
+        log_message_User("获取点击坐标失败!");
+        return;
+    }
+    set_click_coordinates(coordinates.first, coordinates.second);
+
 }
 
 bool Scanner::start_work()
@@ -320,13 +339,13 @@ bool Scanner::append_new_log(const QString &ts, const QString &content)
 void Scanner::send_text(const QString &msg)
 {
     emit s_send_text(m_game_window_hwnd, msg);
-    emit log_message_Debug(QString("Scanner::send_text: \n已发送一条信息：\n%1").arg(msg));
+    emit log_message_Debug(QString("Scanner::send_text: \n发送信息：\n%1").arg(msg));
 }
 
 void Scanner::send_image(const QImage &img)
 {
     emit s_send_image(m_game_window_hwnd, img);
-    emit log_message_Debug(QString("Scanner::send_text: \n已发送一张图片"));
+    emit log_message_Debug(QString("Scanner::send_text: \n发送一张图片"));
 }
 
 void Scanner::make_call()
@@ -589,6 +608,44 @@ QString Scanner::make_time_stamp()
     return QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
 }
 
+void Scanner::set_filter_key(QString key, bool status)
+{
+    m_alarm_filter[key] = status;
+    emit log_message_Debug(QString("Alarm_setAPTitle:\n关键词(%1)的状态已设置为(%2)").arg(key).arg(m_alarm_filter[key]? "禁用":"启用"));
+}
+
+void Scanner::full_test()
+{
+    bool has_error = false;
+    if (!m_TPPW_hwnd) {
+        emit send_warn("Scanner::full_test: \n通讯平台窗口句柄不存在！");
+        emit log_message_User("微信窗口句柄不存在！");
+        has_error = true;
+    }
+    if (!bind_game_window(m_game_window_title))
+    {
+        emit log_message_Debug("Scanner::full_test: \n无法绑定游戏窗口！");
+        emit log_message_User("无法绑定游戏窗口！");
+        has_error = true;
+    }
+    if (!check_windows_and_crash())
+    {
+        emit log_message_Debug("Scanner::scan:\n游戏窗口未就绪，本轮检测终止");
+        emit log_message_User("游戏窗口未就绪！");
+        has_error = true;
+    }
+
+    QImage wechat_screenshot;
+
+    if(!print_window(m_game_window_hwnd, wechat_screenshot))
+    {
+        emit log_message_Debug("Scanner::scan: \n截图失败 // Unable to take screenshot");
+        emit log_message_User("截图失败！");
+        has_error = true;
+    }
+    todo!!!!!
+}
+
 void Scanner::handle_start_signal()
 {
     this->m_first_round = true;
@@ -728,6 +785,7 @@ void Scanner::scan()
         emit log_message_Debug("Scanner::scan: \n部落日志OCR结果为空，本轮检测终止");
         return;
     }
+    // 此处in_game_error在发现游戏掉线之类问题后就已经emit了对应信号。
     if (in_game_error(result_log))
     {
         emit log_message_Debug("Scanner::scan: \n部落日志OCR结果中检测到游戏掉线，本轮检测终止");
