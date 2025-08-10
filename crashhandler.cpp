@@ -104,6 +104,7 @@ void CrashHandler::handle_start_signal()
             emit log_message_Debug("CrashHandler::handle_start_signal:\n开始游戏按钮已出现，crash handle部分结束");
             emit log_message_User("开始游戏按钮已出现，crash handle部分结束");
             emit got_game_hwnd(game_hwnd);
+            QThread::msleep(1000);
             emit finished_0();
             return;
         }

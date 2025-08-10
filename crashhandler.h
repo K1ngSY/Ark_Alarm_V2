@@ -16,7 +16,7 @@ public:
     {
         m_cancelRequested.store(true);
         emit log_message_Debug(QString("CrashHandler::cancel:\n原子状态为[%1]").arg(m_cancelRequested.load()? "canceled" : "not canceled"));
-        emit log_message_User(QString("原子状态为[%1]").arg(m_cancelRequested.load()? "canceled" : "not canceled"));
+        // emit log_message_User(QString("原子状态为[%1]").arg(m_cancelRequested.load()? "canceled" : "not canceled"));
     }
 private slots:
     // handle_start_signal() 是总流程.

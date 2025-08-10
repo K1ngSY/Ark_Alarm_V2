@@ -25,6 +25,22 @@
       </property>
       <layout class="QVBoxLayout" name="verticalLayout">
        <item>
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Policy::Expanding</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>80</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
         <widget class="QPushButton" name="pushButton_to_tab1">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
@@ -93,22 +109,6 @@
           <bool>true</bool>
          </property>
         </widget>
-       </item>
-       <item>
-        <spacer name="verticalSpacer">
-         <property name="orientation">
-          <enum>Qt::Orientation::Vertical</enum>
-         </property>
-         <property name="sizeType">
-          <enum>QSizePolicy::Policy::Expanding</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>80</height>
-          </size>
-         </property>
-        </spacer>
        </item>
       </layout>
      </widget>
@@ -240,11 +240,35 @@
        </widget>
       </item>
       <item>
-       <widget class="QTabWidget" name="tabWidget_2">
+       <widget class="QTabWidget" name="Main_tabWidget">
+        <property name="tabPosition">
+         <enum>QTabWidget::TabPosition::North</enum>
+        </property>
+        <property name="tabShape">
+         <enum>QTabWidget::TabShape::Triangular</enum>
+        </property>
         <property name="currentIndex">
          <number>0</number>
         </property>
-        <widget class="QWidget" name="tab_3">
+        <property name="elideMode">
+         <enum>Qt::TextElideMode::ElideNone</enum>
+        </property>
+        <property name="usesScrollButtons">
+         <bool>false</bool>
+        </property>
+        <property name="documentMode">
+         <bool>false</bool>
+        </property>
+        <property name="tabsClosable">
+         <bool>false</bool>
+        </property>
+        <property name="movable">
+         <bool>false</bool>
+        </property>
+        <property name="tabBarAutoHide">
+         <bool>false</bool>
+        </property>
+        <widget class="QWidget" name="tab_1">
          <attribute name="title">
           <string>Tab 1</string>
          </attribute>
@@ -265,7 +289,7 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>414</width>
+               <width>369</width>
                <height>767</height>
               </rect>
              </property>
@@ -346,6 +370,13 @@
                     <enum>QFrame::Shadow::Raised</enum>
                    </property>
                    <layout class="QGridLayout" name="gridLayout">
+                    <item row="1" column="0">
+                     <widget class="QCheckBox" name="playSoundcheckBox">
+                      <property name="text">
+                       <string>警报音</string>
+                      </property>
+                     </widget>
+                    </item>
                     <item row="0" column="1">
                      <widget class="QCheckBox" name="checkBox_is_group">
                       <property name="text">
@@ -369,13 +400,6 @@
                       </property>
                      </widget>
                     </item>
-                    <item row="1" column="0">
-                     <widget class="QCheckBox" name="playSoundcheckBox">
-                      <property name="text">
-                       <string>警报音</string>
-                      </property>
-                     </widget>
-                    </item>
                     <item row="1" column="1">
                      <widget class="QCheckBox" name="checkBox_overlay_visible">
                       <property name="text">
@@ -385,6 +409,28 @@
                        <bool>false</bool>
                       </property>
                      </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QFrame" name="frame_5">
+                   <property name="frameShape">
+                    <enum>QFrame::Shape::StyledPanel</enum>
+                   </property>
+                   <property name="frameShadow">
+                    <enum>QFrame::Shadow::Raised</enum>
+                   </property>
+                   <layout class="QVBoxLayout" name="verticalLayout_8">
+                    <item>
+                     <widget class="QLabel" name="label_10">
+                      <property name="text">
+                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;微信群呼成员名(以&lt;/span&gt;&lt;span style=&quot; font-size:11pt; font-weight:700; color:#ff0000;&quot;&gt;英文逗号&lt;/span&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;分隔(例: AA,BB,CC))&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QLineEdit" name="lineEdit_call_members"/>
                     </item>
                    </layout>
                   </widget>
@@ -421,7 +467,7 @@
                        </widget>
                       </item>
                       <item>
-                       <widget class="ToggleButton" name="toggleButton_text_alarm_p">
+                       <widget class="ToggleButton" name="toggleButton_text_alarm_P">
                         <property name="text">
                          <string>PushButton</string>
                         </property>
@@ -441,7 +487,7 @@
                        </widget>
                       </item>
                       <item>
-                       <widget class="ToggleButton" name="toggleButton_call_alarm_p">
+                       <widget class="ToggleButton" name="toggleButton_call_alarm_P">
                         <property name="text">
                          <string>PushButton</string>
                         </property>
@@ -484,7 +530,7 @@
                        </widget>
                       </item>
                       <item>
-                       <widget class="ToggleButton" name="toggleButton_text_alarm_t">
+                       <widget class="ToggleButton" name="toggleButton_text_alarm_T">
                         <property name="text">
                          <string>PushButton</string>
                         </property>
@@ -504,7 +550,7 @@
                        </widget>
                       </item>
                       <item>
-                       <widget class="ToggleButton" name="toggleButton_call_alarm_t">
+                       <widget class="ToggleButton" name="toggleButton_call_alarm_T">
                         <property name="text">
                          <string>PushButton</string>
                         </property>
@@ -618,28 +664,6 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QFrame" name="frame_5">
-                   <property name="frameShape">
-                    <enum>QFrame::Shape::StyledPanel</enum>
-                   </property>
-                   <property name="frameShadow">
-                    <enum>QFrame::Shadow::Raised</enum>
-                   </property>
-                   <layout class="QVBoxLayout" name="verticalLayout_8">
-                    <item>
-                     <widget class="QLabel" name="label_10">
-                      <property name="text">
-                       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;微信群呼成员名(以&lt;/span&gt;&lt;span style=&quot; font-size:11pt; font-weight:700; color:#ff0000;&quot;&gt;英文逗号&lt;/span&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;分隔(例: AA,BB,CC))&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QLineEdit" name="lineEdit_call_members"/>
-                    </item>
-                   </layout>
-                  </widget>
-                 </item>
-                 <item>
                   <widget class="QFrame" name="frame_6">
                    <property name="frameShape">
                     <enum>QFrame::Shape::StyledPanel</enum>
@@ -671,7 +695,7 @@
           <item>
            <widget class="QFrame" name="frame">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+             <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
@@ -684,7 +708,37 @@
             </property>
             <layout class="QVBoxLayout" name="verticalLayout_3">
              <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_15">
+               <item>
+                <widget class="QLabel" name="label_19">
+                 <property name="text">
+                  <string>日志</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="pushButton_user_log_clear">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="text">
+                  <string>清屏</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
               <widget class="QTextBrowser" name="textBrowser_user_log">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
                <property name="cursor" stdset="0">
                 <cursorShape>IBeamCursor</cursorShape>
                </property>
@@ -695,7 +749,7 @@
           </item>
          </layout>
         </widget>
-        <widget class="QWidget" name="tab_4">
+        <widget class="QWidget" name="tab_2">
          <attribute name="title">
           <string>Tab 2</string>
          </attribute>
@@ -795,6 +849,9 @@
                     <verstretch>0</verstretch>
                    </sizepolicy>
                   </property>
+                  <property name="maximum">
+                   <number>200</number>
+                  </property>
                  </widget>
                 </item>
                 <item>
@@ -818,7 +875,7 @@
           </item>
          </layout>
         </widget>
-        <widget class="QWidget" name="tab_5">
+        <widget class="QWidget" name="tab_3">
          <attribute name="title">
           <string>Tab 3</string>
          </attribute>
@@ -938,14 +995,31 @@
           <item>
            <layout class="QVBoxLayout" name="verticalLayout_14">
             <item>
-             <widget class="QLabel" name="label_15">
-              <property name="text">
-               <string>调试输出</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignmentFlag::AlignCenter</set>
-              </property>
-             </widget>
+             <layout class="QHBoxLayout" name="horizontalLayout_16">
+              <item>
+               <widget class="QLabel" name="label_15">
+                <property name="text">
+                 <string>调试输出</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pushButton_debug_log_clear">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="text">
+                 <string>清屏</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </item>
             <item>
              <widget class="QTextBrowser" name="textBrowser_debug_log">
@@ -958,7 +1032,7 @@
           </item>
          </layout>
         </widget>
-        <widget class="QWidget" name="tab_6">
+        <widget class="QWidget" name="tab_4">
          <attribute name="icon">
           <iconset theme="QIcon::ThemeIcon::HelpAbout"/>
          </attribute>

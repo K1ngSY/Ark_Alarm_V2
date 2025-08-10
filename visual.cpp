@@ -596,3 +596,25 @@ bool check_5_cards(HWND game_hwnd)
     }
     return false;
 }
+
+bool _test_ocr()
+{
+    // 测试文字识别模块
+    QString tessDir = QDir(QCoreApplication::applicationDirPath()).filePath("tessdata");
+    tesseract::TessBaseAPI ocr;
+    ocr.SetVariable("tessedit_use_mmap", "0");
+    QByteArray localAnsi = tessDir.toLocal8Bit();
+    std::string ansiPath(localAnsi.constData(), localAnsi.size());
+
+    if (ocr.Init(ansiPath.c_str(), "chi_sim+eng", tesseract::OEM_LSTM_ONLY))
+    {
+        ocr.End();
+        return false;
+    }
+    else
+    {
+        ocr.End();
+        return true;
+    }
+
+}

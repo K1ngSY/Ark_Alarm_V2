@@ -3,7 +3,6 @@
 
 #include "overlaywindow.h"
 #include "scanner.h"
-#include "togglebutton.h"
 #include "rejoiner.h"
 #include "crashhandler.h"
 #include "sender.h"
@@ -15,7 +14,8 @@
 #include <QDateTime>
 #include <windows.h>
 #include <QTimer>
-#include <QSoundEffect>
+#include <QMediaPlayer>
+#include <QAudioOutput>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -44,7 +44,9 @@ private slots:
     void update_overlay_pos_y_slider(int value);
     void update_overlay_pos_y_spinBox(int value);
     void update_overlay_range();
+    void on_overlay_visibility_changed(Qt::CheckState state);
 
+    // Debug Images.
     inline void update_image_p(QImage pic)
     {
         ui->image1Label->setPixmap(QPixmap::fromImage(pic));
@@ -57,9 +59,6 @@ private slots:
     void handle_find_window_fail(window_type failed_window_type);
 
     void on_made_call(call_type type);
-
-    // connect to crash handler got_game_hwnd.
-    void set_game_hwnd(HWND hwnd);
 
     // connect to crash handler finishen_0.
     void proceed_rejoin();
@@ -96,9 +95,39 @@ private slots:
 
     void updateCallMemberLable(QString member);
 
-    void onRejoinModeChanged(Qt::CheckState checkState);
-
     void handle_warn(QString msg);
+
+    void switch_to_tab_1();
+    void switch_to_tab_2();
+    void switch_to_tab_3();
+    void switch_to_tab_4();
+
+    void change_play_sound(Qt::CheckState checkState);
+
+    void refresh_server_combo_box();
+
+    // connect to scanner game_timeout.
+    inline void handle_in_game_error()
+    {
+        stop_scanner();
+        if (!game_back_to_home())
+        {
+            return;
+        }
+        launch_rejoiner();
+    }
+
+    void handle_made_calls(call_type type);
+
+    void handle_crash();
+
+    void handle_crashHandler_game_window_timeout();
+    void handle_crashHandler_start_button_timeout();
+    void handle_crashHandler_got_game_hwnd(HWND game_hwnd);
+
+    void handle_rejoiner_finished1(QString msg);
+    void handle_rejoiner_finished0();
+
 private:
     Ui::DashBoard *ui;
 
@@ -109,11 +138,10 @@ private:
 
     QString m_wechat_window_title;
 
-    QTimer *m_slider_update_timer;
     QTimer *m_timer_table_CD;
-
-    QMetaObject::Connection m_slider_update_timer_conn;
+    QTimer *m_timer_slider_range;
     QMetaObject::Connection m_timer_table_CD_conn;
+    QMetaObject::Connection m_timer_slider_range_conn;
 
     Scanner *m_scanner;
     CrashHandler *m_crash_handler;
@@ -133,12 +161,15 @@ private:
 
     bool m_serverComboBoxUpdated;
     bool m_playerNumberAlarmSent;
+    bool m_play_sound;
 
     // ——— 报警音配置 ———
     // 1为副栉龙警报
-    QSoundEffect *m_effect1;
     // 2为部落日志警报
-    QSoundEffect *m_effect2;
+    QAudioOutput *m_audioOutput1;
+    QAudioOutput* m_audioOutput2;
+    QMediaPlayer *m_player1;
+    QMediaPlayer *m_player2;
 
     // 检测次数计数器
     int m_round_count;
@@ -207,17 +238,6 @@ private:
         m_sender->stop_work();
     }
 
-    // connect to scanner game_timeout.
-    inline void handle_ingame_error()
-    {
-        stop_scanner();
-        if (!game_back_to_home())
-        {
-            return;
-        }
-        launch_rejoiner();
-    }
-
     inline bool game_back_to_home()
     {
         if (!scan_window(m_game_hwnd))
@@ -258,13 +278,11 @@ private:
 
     void table_CD_helper();
 
-
-
 protected:
     void closeEvent(QCloseEvent *event) override;
 
 signals:
     void _send_message(HWND hwnd, QString msg);
-    void change_keyword_status(QString, bool status);
+    void change_keyword_status(QString key, bool status);
 };
 #endif // DASHBOARD_H

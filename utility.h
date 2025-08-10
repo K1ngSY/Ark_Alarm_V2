@@ -15,4 +15,5 @@ bool scan_crash_windows();
 
 bool get_wechat_window_coordinates(HWND hwnd, int y, QPair<int, int> &pair);
 
+bool test_ocr();
 #endif // UTILITY_H

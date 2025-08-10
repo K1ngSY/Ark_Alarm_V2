@@ -34,19 +34,27 @@ void ServerList::return_list(QNetworkReply *reply)
 
 void ServerList::handle_start_signal()
 {
-    if (m_timer)
+    emit log_message_Debug("ServerList::handle_start_signal()");
+    if (!m_timer)
     {
+        emit log_message_Debug("ServerList::handle_start_signal:\n创建新Timer");
         m_timer = new QTimer(this);
         m_timer_conn = connect(m_timer, &QTimer::timeout, this, &ServerList::fetch);
     }
-    if (m_manager)
+    if (!m_manager)
     {
+        emit log_message_Debug("ServerList::handle_start_signal:\n创建新Manager");
         m_manager = new QNetworkAccessManager(this);
         m_manager_conn = connect(m_manager, &QNetworkAccessManager::finished, this, &ServerList::return_list);
     }
     if (!m_timer->isActive())
     {
         m_timer->start(INTERVAL);
+        emit log_message_User("启动服务器监控列表！");
+    }
+    else
+    {
+        emit log_message_User("服务器监控列表已在运行！");
     }
     fetch();
 }

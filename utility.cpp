@@ -1,4 +1,5 @@
 #include "utility.h"
+#include "visual.h"
 #include <QDebug>
 #include <QStringList>
 #include <QScreen>
@@ -25,8 +26,8 @@ bool scan_window(const HWND &windowHwnd)
 
 bool scan_crash_windows()
 {
-    QStringList window_keywords;
-    window_keywords << "UE4-ShooterGame"
+    QStringList crash_window_keywords;
+    crash_window_keywords << "UE4-ShooterGame"
                     << "UE-ShooterGame"
                     << "Game has crashed and will close"
                     << "Crash!"
@@ -36,7 +37,7 @@ bool scan_crash_windows()
 
     // 枚举所有顶层窗口，找标题包含任一 keyword
     struct EnumData { const QStringList *window_keywords; HWND found; };
-    EnumData data{&window_keywords, nullptr};
+    EnumData data{&crash_window_keywords, nullptr};
     ::EnumWindows([](HWND hwnd, LPARAM lparam) -> BOOL {
         auto &d = *reinterpret_cast<EnumData*>(lparam);
         if (!::IsWindowVisible(hwnd)) return TRUE;
@@ -93,4 +94,9 @@ bool get_wechat_window_coordinates(HWND hwnd, int y, QPair<int, int> &pair)
         return true;
     }
     return false;
+}
+
+bool test_ocr()
+{
+    return _test_ocr();
 }

@@ -71,7 +71,8 @@ private:
     QStringList m_serious_log_keywords;
     QStringList m_nonSerious_log_keywords;
     QStringList m_P_keywords;
-    QStringList m_error_window_title_flags;
+    // Scanner无需崩溃窗口标题字典，已在utility中实现.
+    // QStringList m_error_window_title_flags;
     QStringList m_game_timeout_keywords;
 
     int m_click_coordinate_x;
@@ -79,8 +80,10 @@ private:
 
     bool m_first_round;
     bool m_is_group_call;
-    bool m_need_text;
-    bool m_need_call;
+    bool m_need_text_P;
+    bool m_need_call_P;
+    bool m_need_text_T;
+    bool m_need_call_T;
 
     QTimer *m_cycle_timer;
     QTimer *m_call_member_check_timer;
@@ -149,9 +152,75 @@ private:
     // 本函数已经包含了对用户是否选择Text和call的判断.
     void handle_tribe_alerts(const QImage &screenshot, const QMap<QString, QPair<QStringList, bool>> &logs_map);
     QString make_time_stamp();
+
 public slots:
     void set_filter_key(QString key, bool status);
     void full_test();
+    void update_group_call_status(Qt::CheckState state);
+
+    void set_call_members (QString members);
+
+    void set_need_text_P(bool status)
+    {
+        this->m_need_text_P = status;
+        if(this->m_need_text_P)
+        {
+            emit log_message_User(QString("已启用副栉龙文本警报功能"));
+            emit log_message_Debug(QString("set_need_text_P = True"));
+        }
+        else
+        {
+            emit log_message_User(QString("已禁用副栉龙文本警报功能"));
+            emit log_message_Debug(QString("set_need_text_P = False"));
+        }
+    }
+
+    void set_need_text_T(bool status)
+    {
+        this->m_need_text_T = status;
+        if(this->m_need_text_T)
+        {
+            emit log_message_User(QString("已启用部落日志文本警报功能"));
+            emit log_message_Debug(QString("set_need_text_T = True"));
+        }
+        else
+        {
+            emit log_message_User(QString("已禁用部落日志文本警报功能"));
+            emit log_message_Debug(QString("set_need_text_T = False"));
+        }
+    }
+
+    void set_need_call_P(bool status)
+    {
+        this->m_need_call_P = status;
+        if(this->m_need_call_P)
+        {
+            emit log_message_User(QString("已启用副栉龙微信语音警报功能"));
+            emit log_message_Debug(QString("set_need_call_P = True"));
+        }
+        else
+        {
+            emit log_message_User(QString("已禁用副栉龙微信语音警报功能"));
+            emit log_message_Debug(QString("set_need_call_P = False"));
+        }
+    }
+
+    void set_need_call_T(bool status)
+    {
+        this->m_need_call_T = status;
+        if(this->m_need_call_T)
+        {
+            emit log_message_User(QString("已启用部落日志微信语音警报功能"));
+            emit log_message_Debug(QString("set_need_call_T = True"));
+        }
+        else
+        {
+            emit log_message_User(QString("已禁用部落日志微信语音警报功能"));
+            emit log_message_Debug(QString("set_need_call_T = False"));
+        }
+    }
+
+
 private slots:
     /// The real function launches the main assign.
     void handle_start_signal() override;
@@ -183,6 +252,9 @@ signals:
     // 发送警报的信号需要在主窗内连接到sender线程.
     void s_send_text(HWND hwnd, QString msg);
     void s_send_image(HWND hwnd, QImage img);
+
+    void s_send_call(HWND hwnd, int x, int y);
+    void s_send_group_call(HWND hwnd, QString members, int x, int y);
 };
 
 #endif // SCANNER_H

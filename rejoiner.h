@@ -16,23 +16,27 @@ public:
         emit log_message_Debug(QString("Rejoiner::set_game_hwnd:\n已设置游戏窗口句柄为%1").arg((qulonglong)m_game_hwnd));
         emit log_message_User(QString("已设置游戏窗口句柄为%1").arg((qulonglong)m_game_hwnd));
     }
+
+    inline void cancel() override
+    {
+        m_cancelRequested.store(true);
+        emit log_message_Debug(QString("Rejoiner::cancel:\n原子状态为[%1]").arg(m_cancelRequested.load()? "canceled" : "not canceled"));
+        // emit log_message_User(QString("原子状态为[%1]").arg(m_cancelRequested.load()? "canceled" : "not canceled"));
+    }
+
+public slots:
     inline void set_server_ID(const QString &ID)
     {
         this->m_server_ID = ID;
         emit log_message_Debug(QString("Rejoiner::set_game_hwnd:\n已设置服务器ID为%1").arg(m_server_ID));
         emit log_message_User(QString("已设置服务器ID为%1").arg(m_server_ID));
     }
-    inline void set_has_mod(const bool &has_mod)
+
+    inline void set_has_mod(Qt::CheckState status)
     {
-        this->m_has_mod = has_mod;
+        this->m_has_mod = status == Qt::CheckState::Checked;
         emit log_message_Debug(QString("Rejoiner::set_game_hwnd:\n已设置服务器Mod状态为[%1]").arg(m_has_mod? "含Mod" : "不含Mode"));
         emit log_message_User(QString("已设置服务器Mod状态为[%1]").arg(m_has_mod? "含Mod" : "不含Mode"));
-    }
-    inline void cancel() override
-    {
-        m_cancelRequested.store(true);
-        emit log_message_Debug(QString("Rejoiner::cancel:\n原子状态为[%1]").arg(m_cancelRequested.load()? "canceled" : "not canceled"));
-        emit log_message_User(QString("原子状态为[%1]").arg(m_cancelRequested.load()? "canceled" : "not canceled"));
     }
 private:
     HWND m_game_hwnd;

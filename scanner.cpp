@@ -9,6 +9,8 @@
 #include <QCoreApplication>
 #include <QFile>
 
+
+const QString GAME_WINDOW_TITLE = "ArkAscended";
 Scanner::Scanner(QObject *parent)
     : KWorker{parent}
 {
@@ -18,17 +20,25 @@ Scanner::Scanner(QObject *parent)
 
     this->m_call_member_check_timer = nullptr;
     this->m_cycle_timer             = nullptr;
+    this->m_TPPW_hwnd               = nullptr;
+    this->m_game_window_hwnd        = nullptr;
 
     this->m_is_group_call = false;
-    this->m_need_call     = false;
-    this->m_need_text     = false;
+    this->m_need_call_P    = false;
+    this->m_need_text_P    = false;
+    this->m_need_call_T    = false;
+    this->m_need_text_T    = false;
     this->m_first_round   = true;
 
     this->m_click_coordinate_x = 20;
     this->m_click_coordinate_y = 20;
 
+    this->m_game_window_title = GAME_WINDOW_TITLE;
+    this->m_TPPW_title = QString();
+
+
     // 设置持久化文件存放路径（程序所在目录下）
-    m_log_file_path = QCoreApplication::applicationDirPath() + "/tribe_logs.txt";
+    this->m_log_file_path = QCoreApplication::applicationDirPath() + "/tribe_logs.txt";
 
     this->m_call_members = "[占位符]注意：您仍未设置群呼成员！";
     this->m_game_timeout_keywords << "HOST"
@@ -131,6 +141,28 @@ Scanner::Scanner(QObject *parent)
     m_alarm_promts_Chinese["to private"] = "您的某建筑权限被设置为私有！";
     m_alarm_promts_Chinese["froze"] = "您的某龙被收！";
     m_alarm_promts_Chinese["Your Tribe killed"] = "您的部落击杀了敌方目标！";
+
+    if (!m_call_member_check_timer)
+    {
+        m_call_member_check_timer = new QTimer(this);
+        if (m_call_member_check_timer)
+            emit log_message_Debug("Scanner::handle_start_signal:\n已在栈上声明了一个新的call_member_checkt_imer指针！");
+        m_call_member_check_timer->setInterval(m_mCall_member_timer_interval);
+        m_call_member_check_timer_conn = connect(m_call_member_check_timer, &QTimer::timeout, this, &Scanner::refresh_call_member);
+    }
+
+    if (!m_call_member_check_timer->isActive())
+    {
+        m_call_member_check_timer->start();
+        if (m_call_member_check_timer->isActive())
+        {
+            emit log_message_Debug("Scanner::handle_start_signal:\n群呼成员监控启动！");
+        }
+    }
+    else
+    {
+        emit log_message_Debug("Scanner::handle_start_signal:\n群呼成员监控已在运行！");
+    }
 }
 
 Scanner::~Scanner()
@@ -338,73 +370,81 @@ bool Scanner::append_new_log(const QString &ts, const QString &content)
 
 void Scanner::send_text(const QString &msg)
 {
-    emit s_send_text(m_game_window_hwnd, msg);
+    emit s_send_text(m_TPPW_hwnd, msg);
     emit log_message_Debug(QString("Scanner::send_text: \n发送信息：\n%1").arg(msg));
 }
 
 void Scanner::send_image(const QImage &img)
 {
-    emit s_send_image(m_game_window_hwnd, img);
+    emit s_send_image(m_TPPW_hwnd, img);
     emit log_message_Debug(QString("Scanner::send_text: \n发送一张图片"));
 }
 
 void Scanner::make_call()
 {
-    left_click(m_game_window_hwnd, m_click_coordinate_x, m_click_coordinate_y);
+    // left_click(m_TPPW_hwnd, m_click_coordinate_x, m_click_coordinate_y);
+    emit s_send_call(m_TPPW_hwnd, m_click_coordinate_x, m_click_coordinate_y);
     emit made_call(SINGLE);
 }
 
 void Scanner::make_group_call()
 {
-    left_click(m_game_window_hwnd, m_click_coordinate_x, m_click_coordinate_y);
-    //等待弹窗完全出现.
-    QThread::msleep(300);
-    // 1) 找到“微信选择成员”对话框.
-    std::wstring title = QStringLiteral("微信选择成员").toStdWString();
-    HWND dlg = FindWindowW(nullptr, title.c_str());
-    if (!dlg) {
-        emit log_message_Debug("Scanner::make_group_call:\n无法找到“微信选择成员”窗口");
+    if (m_call_members == "[占位符]注意：您仍未设置群呼成员！")
+    {
+        emit log_message_User("您试图发起微信群语音，但未配置群呼成员，已被终止！");
         return;
     }
-    SetForegroundWindow(dlg);
-    QThread::msleep(30);
-
-    // 2) 获取当前屏幕分辨率，计算横/纵缩放比例.
-    int screenW = GetSystemMetrics(SM_CXSCREEN);
-    int screenH = GetSystemMetrics(SM_CYSCREEN);
-    double scaleX = screenW / 1920.0;
-    double scaleY = screenH / 1080.0;
-
-    // 3) 解析用户输入的成员并依次搜索点击.
-    QStringList list = m_call_members.split(",", Qt::SkipEmptyParts);
-    for (const QString &s : list) {
-        int baseX = 183;
-        int baseY = 63;
-        left_click(dlg, int(baseX * scaleX), int(baseY * scaleY));
-        emit log_message_Debug(QString("Scanner::make_group_call:\n点击搜索框，坐标=(%1, %2)").arg(int(baseX * scaleX)).arg(int(baseY * scaleY)));
-        QThread::msleep(rand()%10);
-        paste_text(s.trimmed());
-        emit log_message_Debug(QString("Scanner::make_group_call:\n粘贴用户名 %1").arg(s.trimmed()));
-        baseX = 127;
-        baseY = 115;
-        left_click(dlg, int(baseX * scaleX), int(baseY * scaleY));
-        emit log_message_Debug(QString("Scanner::make_group_call:\n点击首位，坐标=(%1, %2)").arg(int(baseX * scaleX)).arg(int(baseY * scaleY)));
-        QThread::msleep(rand()%10);
-        baseX = 313;
-        baseY = 59;
-        left_click(dlg, int(baseX * scaleX), int(baseY * scaleY));
-        emit log_message_Debug(QString("Scanner::make_group_call:\n点击清除，坐标=(%1, %2)").arg(int(baseX * scaleX)).arg(int(baseY * scaleY)));
-        QThread::msleep(rand()%10);
-    }
-
-    // 4) 点击“确定”按钮（基准坐标 X,Y）.
-    int btnX = int(447 * scaleX);
-    int btnY = int(524 * scaleY);
-    emit log_message_Debug(QString("Scanner::make_group_call:\n点击确定呼叫按钮，坐标=(%1, %2)").arg(btnX).arg(btnY));
-    left_click(dlg, btnX, btnY);
-
-    emit log_message_Debug("群呼完成");
+    emit s_send_group_call(m_TPPW_hwnd, m_call_members, m_click_coordinate_x, m_click_coordinate_y);
     emit made_call(GROUP);
+//     left_click(m_TPPW_hwnd, m_click_coordinate_x, m_click_coordinate_y);
+//     //等待弹窗完全出现.
+//     QThread::msleep(300);
+//     // 1) 找到“微信选择成员”对话框.
+//     std::wstring title = QStringLiteral("微信选择成员").toStdWString();
+//     HWND dlg = FindWindowW(nullptr, title.c_str());
+//     if (!dlg) {
+//         emit log_message_Debug("Scanner::make_group_call:\n无法找到“微信选择成员”窗口");
+//         return;
+//     }
+//     SetForegroundWindow(dlg);
+//     QThread::msleep(30);
+
+//     // 2) 获取当前屏幕分辨率，计算横/纵缩放比例.
+//     int screenW = GetSystemMetrics(SM_CXSCREEN);
+//     int screenH = GetSystemMetrics(SM_CYSCREEN);
+//     double scaleX = screenW / 1920.0;
+//     double scaleY = screenH / 1080.0;
+
+//     // 3) 解析用户输入的成员并依次搜索点击.
+//     QStringList list = m_call_members.split(",", Qt::SkipEmptyParts);
+//     for (const QString &s : list) {
+//         int baseX = 183;
+//         int baseY = 63;
+//         left_click(dlg, int(baseX * scaleX), int(baseY * scaleY));
+//         emit log_message_Debug(QString("Scanner::make_group_call:\n点击搜索框，坐标=(%1, %2)").arg(int(baseX * scaleX)).arg(int(baseY * scaleY)));
+//         QThread::msleep(rand()%10);
+//         paste_text(s.trimmed());
+//         emit log_message_Debug(QString("Scanner::make_group_call:\n粘贴用户名 %1").arg(s.trimmed()));
+//         baseX = 127;
+//         baseY = 115;
+//         left_click(dlg, int(baseX * scaleX), int(baseY * scaleY));
+//         emit log_message_Debug(QString("Scanner::make_group_call:\n点击首位，坐标=(%1, %2)").arg(int(baseX * scaleX)).arg(int(baseY * scaleY)));
+//         QThread::msleep(rand()%10);
+//         baseX = 313;
+//         baseY = 59;
+//         left_click(dlg, int(baseX * scaleX), int(baseY * scaleY));
+//         emit log_message_Debug(QString("Scanner::make_group_call:\n点击清除，坐标=(%1, %2)").arg(int(baseX * scaleX)).arg(int(baseY * scaleY)));
+//         QThread::msleep(rand()%10);
+//     }
+
+//     // 4) 点击“确定”按钮（基准坐标 X,Y）.
+//     int btnX = int(447 * scaleX);
+//     int btnY = int(524 * scaleY);
+//     emit log_message_Debug(QString("Scanner::make_group_call:\n点击确定呼叫按钮，坐标=(%1, %2)").arg(btnX).arg(btnY));
+//     left_click(dlg, btnX, btnY);
+
+//     emit log_message_Debug("群呼完成");
+//     emit made_call(GROUP);
 }
 
 bool Scanner::allow_this_keyword(const QString &key)
@@ -528,16 +568,30 @@ bool Scanner::check_parasaurolophus_alarm(const QString &ocr_result, QString &ke
 
 void Scanner::handle_parasaurolophus_alert(const QString &OCR_resultconst, const QString &keyword)
 {
-    QString message = QString("—————— K_AlarmBot ——————\n\n"
-                              "%1 \n(Key: %2)\n----------------------------------\n"
-                              "Attention: Parasaurolophus has detected the enemy!\n"
-                              "副栉龙发现敌人，请留意！\n"
-                              "RAW Result\n[%3]\n\n"
-                              "—————— K_AlarmBot ——————")
-                          .arg(make_time_stamp())
-                          .arg(keyword)
-                          .arg(OCR_resultconst);
-    send_text(message);
+    if (m_need_text_P)
+    {
+        QString message = QString("—————— K_AlarmBot ——————\n\n"
+                                  "%1 \n(Key: %2)\n----------------------------------\n"
+                                  "Attention: Parasaurolophus has detected the enemy!\n"
+                                  "副栉龙发现敌人，请留意！\n"
+                                  "RAW Result\n[%3]\n\n"
+                                  "—————— K_AlarmBot ——————")
+                              .arg(make_time_stamp())
+                              .arg(keyword)
+                              .arg(OCR_resultconst);
+        send_text(message);
+    }
+    if (m_need_call_P)
+    {
+        if (m_is_group_call)
+        {
+            make_group_call();
+        }
+        else
+        {
+            make_call();
+        }
+    }
     emit increase_alarm_count();
     emit play_alarm_sound_P();
 }
@@ -583,18 +637,19 @@ void Scanner::handle_tribe_alerts(const QImage &screenshot, const QMap<QString, 
 
         tribeText += "—— K_AlarmBot ——";
 
-        if (m_need_text)
+        if (m_need_text_T)
         {
-            emit increase_alarm_count();
             send_text(tribeText);
             send_image(screenshot);
         }
-        if (m_need_call && is_serious)
+        if (m_need_call_T && is_serious)
         {
-            if (m_is_group_call) {
+            if (m_is_group_call)
+            {
                 make_group_call();
             }
-            else {
+            else
+            {
                 make_call();
             }
         }
@@ -612,38 +667,159 @@ void Scanner::set_filter_key(QString key, bool status)
 {
     m_alarm_filter[key] = status;
     emit log_message_Debug(QString("Alarm_setAPTitle:\n关键词(%1)的状态已设置为(%2)").arg(key).arg(m_alarm_filter[key]? "禁用":"启用"));
+    emit log_message_User(QString("关键词(%1)的状态已设置为(%2)").arg(key).arg(m_alarm_filter[key]? "禁用":"启用"));
 }
 
 void Scanner::full_test()
 {
     bool has_error = false;
+    bool has_wechat_hwnd = true;
+    QStringList results;
+
+    emit log_message_User("检测微信窗口句柄……");
     if (!m_TPPW_hwnd) {
         emit send_warn("Scanner::full_test: \n通讯平台窗口句柄不存在！");
-        emit log_message_User("微信窗口句柄不存在！");
+        emit log_message_User("微信窗口句柄不存在！\n");
+        results.append("×微信窗口句柄: 不存在(未配置)");
+        has_wechat_hwnd = false;
         has_error = true;
     }
+    else
+    {
+        emit log_message_User("微信窗口句柄检测通过！\n");
+        results.append("√微信窗口句柄: 正常");
+    }
+
+    bool has_game_window = true;
+    emit log_message_User("检测是否存在游戏窗口……");
     if (!bind_game_window(m_game_window_title))
     {
         emit log_message_Debug("Scanner::full_test: \n无法绑定游戏窗口！");
-        emit log_message_User("无法绑定游戏窗口！");
+        emit log_message_User("游戏窗口不存在！\n");
+        results.append("×游戏窗口: 不存在(未启动)");
+        has_game_window = false;
         has_error = true;
     }
-    if (!check_windows_and_crash())
+    else
     {
-        emit log_message_Debug("Scanner::scan:\n游戏窗口未就绪，本轮检测终止");
-        emit log_message_User("游戏窗口未就绪！");
-        has_error = true;
+        emit log_message_User("游戏窗口检测通过！\n");
+        results.append("√游戏窗口: 正常");
     }
 
-    QImage wechat_screenshot;
-
-    if(!print_window(m_game_window_hwnd, wechat_screenshot))
+    if (has_game_window)
     {
-        emit log_message_Debug("Scanner::scan: \n截图失败 // Unable to take screenshot");
-        emit log_message_User("截图失败！");
-        has_error = true;
+        emit log_message_User("游戏窗口存在！");
+        emit log_message_User("检测是否存在崩溃窗口……");
+        if (!check_windows_and_crash())
+        {
+            emit log_message_Debug("Scanner::full_test: \n游戏窗口未就绪");
+            emit log_message_User("游戏状态异常！\n");
+            results.append("×崩溃窗口: 存在(游戏已崩溃)");
+            has_error = true;
+        }
+        else
+        {
+            emit log_message_User("崩溃窗口检测通过！\n");
+            results.append("√崩溃窗口: 正常(无崩溃窗口)");
+        }
     }
-    todo!!!!!
+    else
+    {
+        emit log_message_User("游戏窗口不存在， 跳过游戏窗口状态检测！");
+    }
+
+    if (has_wechat_hwnd)
+    {
+        emit log_message_User("测试截图可用性……");
+        QImage wechat_screenshot;
+        if(!print_window(m_TPPW_hwnd, wechat_screenshot))
+        {
+            emit log_message_Debug("Scanner::full_test: \n截图失败 // Unable to take screenshot");
+            emit log_message_User("截图失败！\n");
+            results.append("×截图可用性: 不可用");
+            has_error = true;
+        }
+        else
+        {
+            emit log_message_User("测试截图可用性检测通过！\n");
+            results.append("√截图可用性: 正常");
+        }
+
+        emit log_message_User("测试文本发送……");
+        send_text("K报警器测试:\n测试文本");
+        if (!wechat_screenshot.isNull())
+        {
+            emit log_message_User("测试图片发送……");
+            send_text("K报警器测试:\n测试图片↓");
+            send_image(wechat_screenshot);
+        }
+        else
+        {
+            emit log_message_User("截图失败，跳过图片发送测试");
+        }
+
+        emit log_message_User("测试微信语音……");
+        emit log_message_User("注意：\n若您启用了微信群呼功能，请您及时配置群呼成员");
+        if (m_is_group_call)
+        {
+            make_group_call();
+            emit log_message_User("发起群语音！");
+        }
+        else
+        {
+            make_call();
+            emit log_message_User("发起Single语音！");
+        }
+    }
+    else
+    {
+        emit log_message_User("微信窗口句柄不存在，跳过截图测试和文本与图片测试！");
+    }
+    emit log_message_User("测试报警音播放……");
+    emit play_alarm_sound_P();
+    emit play_alarm_sound_log();
+    emit log_message_User("全量测试结束\n");
+
+    // Generate report.
+    QString report;
+    for (QString r : results)
+    {
+        report.append(r + "\n");
+    }
+    emit log_message_User("全量测试结果:\n" + report + "\n");
+    if (has_error)
+    {
+        emit log_message_User("当前游戏环境不支持您开始监控！\n请您修复所有检测到的问题并重新运行测试！");
+    }
+    else
+    {
+        emit log_message_User("当前游戏环境可以直接开始监控！");
+    }
+}
+
+void Scanner::update_group_call_status(Qt::CheckState state)
+{
+    m_is_group_call = (state == Qt::Checked);
+    if(m_is_group_call)
+    {
+        emit log_message_Debug("Scanner::update_group_call_status:\n配置更新，启用微信群语音");
+        emit log_message_User("微信群语音已启用！");
+    }
+    else
+    {
+        emit log_message_Debug("Scanner::update_group_call_status:\n配置更新，关闭微信群语音");
+        emit log_message_User("微信群语音已禁用！");
+    }
+}
+
+void Scanner::set_call_members(QString members)
+{
+    if (!members.isEmpty())
+    {
+        m_call_members = members;
+        emit log_message_Debug("Scanner::set_call_members:\nSet call members as::\n" + m_call_members);
+        emit log_message_User("微信群呼成员已设置为:\n" + m_call_members);
+    }
 }
 
 void Scanner::handle_start_signal()
@@ -656,14 +832,7 @@ void Scanner::handle_start_signal()
         m_cycle_timer->setInterval(m_mCycle_timer_interval);
         m_cycle_timer_conn = connect(m_cycle_timer, &QTimer::timeout, this, &Scanner::scan);
     }
-    if (!m_call_member_check_timer)
-    {
-        m_call_member_check_timer = new QTimer(this);
-        if (m_call_member_check_timer)
-            emit log_message_Debug("Scanner::handle_start_signal:\n已在栈上声明了一个新的call_member_checkt_imer指针！");
-        m_call_member_check_timer->setInterval(m_mCall_member_timer_interval);
-        m_call_member_check_timer_conn = connect(m_call_member_check_timer, &QTimer::timeout, this, &Scanner::refresh_call_member);
-    }
+
     if (!m_cycle_timer->isActive())
     {
         m_cycle_timer->start();
@@ -676,18 +845,7 @@ void Scanner::handle_start_signal()
     {
         emit log_message_Debug("Scanner::handle_start_signal:\n监控循环已在运行！");
     }
-    if (!m_call_member_check_timer->isActive())
-    {
-        m_call_member_check_timer->start();
-        if (m_call_member_check_timer->isActive())
-        {
-            emit log_message_Debug("Scanner::handle_start_signal:\n群呼成员监控启动！");
-        }
-    }
-    else
-    {
-        emit log_message_Debug("Scanner::handle_start_signal:\n群呼成员监控已在运行！");
-    }
+
 }
 
 void Scanner::handle_stop_signal()
@@ -735,6 +893,7 @@ void Scanner::handle_stop_signal()
 
 void Scanner::scan()
 {
+    emit increase_round_count();
     if (!bind_game_window(m_game_window_title))
     {
         emit log_message_Debug("Scanner::scan: \n无法绑定游戏窗口！ // Unable to bind game window!");
@@ -775,10 +934,7 @@ void Scanner::scan()
     }
     if (check_parasaurolophus_alarm(result_P, keyword_p))
     {
-        if (m_need_text)
-        {
-            handle_parasaurolophus_alert(result_P, keyword_p);
-        }
+        handle_parasaurolophus_alert(result_P, keyword_p);
     }
     if (result_log.isEmpty())
     {

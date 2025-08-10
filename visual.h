@@ -30,4 +30,6 @@ bool check_connection_health(HWND game_hwnd);
 
 bool check_5_cards(HWND game_hwnd);
 
+bool _test_ocr();
+
 #endif // VISUAL_H

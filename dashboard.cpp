@@ -2,17 +2,22 @@
 #include "ui_dashboard.h"
 #include "utility.h"
 #include "windowselectiondialog.h"
+#include "togglebutton.h"
 #include <QThread>
 #include <QDebug>
 #include <QMessageBox>
+#include <QFile>
+#include <QDir>
+#include <QUrl>
+
 DashBoard::DashBoard(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::DashBoard)
     , m_overlay_window(nullptr)
     , m_wechat_window_hwnd(nullptr)
     , m_game_hwnd(nullptr)
-    , m_slider_update_timer(nullptr)
     , m_timer_table_CD(nullptr)
+    , m_timer_slider_range(nullptr)
     , m_scanner(nullptr)
     , m_crash_handler(nullptr)
     , m_rejoiner(nullptr)
@@ -26,8 +31,11 @@ DashBoard::DashBoard(QWidget *parent)
     , m_wechat_pos_y(0)
     , m_serverComboBoxUpdated(false)
     , m_playerNumberAlarmSent(false)
-    , m_effect1(nullptr)
-    , m_effect2(nullptr)
+    , m_play_sound(false)
+    , m_audioOutput1(new QAudioOutput(this))
+    , m_audioOutput2(new QAudioOutput(this))
+    , m_player1(new QMediaPlayer(this))
+    , m_player2(new QMediaPlayer(this))
     , m_round_count(0)
     , m_alarm_count(0)
 {
@@ -37,6 +45,10 @@ DashBoard::DashBoard(QWidget *parent)
     ui->lcdNumber_alarm->display(m_alarm_count);
     ui->lcdNumber_round->display(m_round_count);
     ui->label_status->setText(tr("欢迎使用！"));
+    ui->thresholdSpinBox->setValue(70);
+    ui->horizontalSlider_pos_y->setMinimum(20);
+    ui->spinBox_pos_y->setMinimum(20);
+    ui->Main_tabWidget->tabBar()->hide();
 
     // Scanner
     m_scanner = new Scanner();
@@ -70,6 +82,8 @@ DashBoard::DashBoard(QWidget *parent)
     m_server_list_thread->start();
     m_sender_thread->start();
 
+    connect(this, &DashBoard::_send_message, m_sender, &Sender::send_text);
+
     // connect log_message
     connect(m_scanner, &KWorker::log_message_Debug, this, &DashBoard::append_log_debug);
     connect(m_crash_handler, &KWorker::log_message_Debug, this, &DashBoard::append_log_debug);
@@ -83,21 +97,144 @@ DashBoard::DashBoard(QWidget *parent)
     connect(m_server_list, &KWorker::log_message_User, this, &DashBoard::append_log_user);
     connect(m_sender, &KWorker::log_message_User, this, &DashBoard::append_log_user);
 
-    m_slider_update_timer = new QTimer(this);
-    m_slider_update_timer_conn = connect(m_slider_update_timer, &QTimer::timeout, this, &DashBoard::update_overlay_range);
-
+    // 捕获图片按比例缩放
     ui->image1Label->setScaledContents(true);
     ui->image2Label->setScaledContents(true);
 
-
+    // Scanner
     connect(m_scanner, &Scanner::send_warn, this, &DashBoard::handle_warn);
+    connect(m_scanner, &Scanner::return_call_member, this, &DashBoard::updateCallMemberLable);
+    connect(m_scanner, &Scanner::made_call, this, &DashBoard::on_made_call);
 
+    // 所有需要发消息到微信的任务都要创建发送消息的信号然后将该信号连接到sender!!!!!!!!!!
+    // 所有需要发消息到微信的任务都要创建发送消息的信号然后将该信号连接到sender!!!!!!!!!!
+    // 所有需要发消息到微信的任务都要创建发送消息的信号然后将该信号连接到sender!!!!!!!!!!
+    // 所有需要发消息到微信的任务都要创建发送消息的信号然后将该信号连接到sender!!!!!!!!!!
+    connect(m_scanner, &Scanner::s_send_text, m_sender, &Sender::send_text);
+    connect(m_scanner, &Scanner::s_send_image, m_sender, &Sender::send_image);
+    connect(m_scanner, &Scanner::s_send_call, m_sender, &Sender::make_call);
+    connect(m_scanner, &Scanner::s_send_group_call, m_sender, &Sender::make_group_call);
+    // 所有需要发消息到微信的任务都要创建发送消息的信号然后将该信号连接到sender!!!!!!!!!!
+    // 所有需要发消息到微信的任务都要创建发送消息的信号然后将该信号连接到sender!!!!!!!!!!
+    // 所有需要发消息到微信的任务都要创建发送消息的信号然后将该信号连接到sender!!!!!!!!!!
+    // 所有需要发消息到微信的任务都要创建发送消息的信号然后将该信号连接到sender!!!!!!!!!!
+
+    connect(m_scanner, &Scanner::got_picture_P, this, &DashBoard::update_image_p);
+    connect(m_scanner, &Scanner::got_picture_log, this, &DashBoard::update_image_t);
+    connect(m_scanner, &Scanner::game_timeout, this, &DashBoard::handle_in_game_error);
+    connect(m_scanner, &Scanner::increase_round_count, this, &DashBoard::increase_scan_count);
+    connect(m_scanner, &Scanner::increase_alarm_count, this, &DashBoard::increase_alarm_count);
+    connect(m_scanner, &Scanner::find_window_failed, this, &DashBoard::handle_find_window_fail);
+    connect(m_scanner, &Scanner::game_crashed, this, &DashBoard::handle_crash);
+
+    // CrashHandler
+    connect(m_crash_handler, &CrashHandler::wait_game_window_timeout, this, &DashBoard::handle_crashHandler_game_window_timeout);
+    connect(m_crash_handler, &CrashHandler::wait_start_button_timeout, this, &DashBoard::handle_crashHandler_start_button_timeout);
+    connect(m_crash_handler, &CrashHandler::got_game_hwnd, this, &DashBoard::handle_crashHandler_got_game_hwnd);
+    connect(m_crash_handler, &CrashHandler::finished_0, this, &DashBoard::proceed_rejoin);
+
+    // Rejoiner
+
+    connect(m_rejoiner, &Rejoiner::finished_1, this, &DashBoard::handle_rejoiner_finished1);
+    connect(m_rejoiner, &Rejoiner::finished_0, this, &DashBoard::handle_rejoiner_finished0);
+
+    connect(ui->checkBox_is_group, &QCheckBox::checkStateChanged, m_scanner, &Scanner::update_group_call_status);
+
+    connect(ui->toggleButton_call_alarm_T, &ToggleButton::toggled, m_scanner, &Scanner::set_need_call_T);
+    connect(ui->toggleButton_call_alarm_P, &ToggleButton::toggled, m_scanner, &Scanner::set_need_call_P);
+    connect(ui->toggleButton_text_alarm_T, &ToggleButton::toggled, m_scanner, &Scanner::set_need_text_T);
+    connect(ui->toggleButton_text_alarm_P, &ToggleButton::toggled, m_scanner, &Scanner::set_need_call_P);
+
+    // PushButtons
     connect(ui->pushButton_start, &QPushButton::clicked, this, &DashBoard::start_monitor);
     connect(ui->pushButton_stop, &QPushButton::clicked, this, &DashBoard::stop_all);
+    connect(ui->pushButton_test, &QPushButton::clicked, m_scanner, &Scanner::full_test);
+    connect(ui->pushButton_select_wechat_window, &QPushButton::clicked, this, &DashBoard::select_wechat_window);
+    connect(ui->updateDowTablepushButton, &QPushButton::clicked, this, &DashBoard::refresh_server_combo_box);
+    connect(ui->pushButton_debug_log_clear, &QPushButton::clicked, ui->textBrowser_debug_log, &QTextBrowser::clear);
+    connect(ui->pushButton_user_log_clear, &QPushButton::clicked, ui->textBrowser_user_log, &QTextBrowser::clear);
+
+    // Overlay WeChat Pos Y
+    connect(ui->horizontalSlider_pos_y, &QSlider::valueChanged, this, &DashBoard::update_overlay_pos_y_slider);
+    connect(ui->spinBox_pos_y, &QSpinBox::valueChanged, this, &DashBoard::update_overlay_pos_y_spinBox);
+
+    // Tab Switching
+    connect(ui->pushButton_to_tab1, &QPushButton::clicked, this, &DashBoard::switch_to_tab_1);
+    connect(ui->pushButton_to_tab2, &QPushButton::clicked, this, &DashBoard::switch_to_tab_2);
+    connect(ui->pushButton_to_tab3, &QPushButton::clicked, this, &DashBoard::switch_to_tab_3);
+    connect(ui->pushButton_to_tab4, &QPushButton::clicked, this, &DashBoard::switch_to_tab_4);
+
+    // ServerList
+    connect(m_server_list, &ServerList::servers_fetched, this, &DashBoard::handle_server_fetched);
 
 
-    connect(m_crash_handler, &CrashHandler::got_game_hwnd, this, &DashBoard::set_game_hwnd);
-    connect(m_crash_handler, &CrashHandler::finished_0, this, &DashBoard::proceed_rejoin);
+    // 微信覆盖层 / overlayWindow
+    connect(ui->checkBox_overlay_visible, &QCheckBox::checkStateChanged, this, &DashBoard::on_overlay_visibility_changed);
+
+    // 报警音控制
+    connect(ui->playSoundcheckBox, &QCheckBox::checkStateChanged, this, &DashBoard::change_play_sound);
+
+    // 警报过滤器
+    connect(this, &DashBoard::change_keyword_status, m_scanner, &Scanner::set_filter_key);
+    connect(ui->checkBox_starved, &QCheckBox::checkStateChanged, this, &DashBoard::changeAlarmKey_starved);
+    connect(ui->checkBox_waskilled, &QCheckBox::checkStateChanged, this, &DashBoard::changeAlarmKey_waskilled);
+    connect(ui->checkBox_demolished, &QCheckBox::checkStateChanged, this, &DashBoard::changeAlarmKey_demolished);
+    connect(ui->checkBox_froze, &QCheckBox::checkStateChanged, this, &DashBoard::changeAlarmKey_froze);
+    connect(ui->checkBox_claimed, &QCheckBox::checkStateChanged, this, &DashBoard::changeAlarmKey_claimed);
+    connect(ui->checkBox_promoted, &QCheckBox::checkStateChanged, this, &DashBoard::changeAlarmKey_promoted);
+    connect(ui->checkBox_added, &QCheckBox::checkStateChanged, this, &DashBoard::changeAlarmKey_added);
+    connect(ui->checkBox_topublic, &QCheckBox::checkStateChanged, this, &DashBoard::changeAlarmKey_topublic);
+
+    // Rejoin Mode Change
+    connect(ui->checkBox_force_rejoin_with_mods, &QCheckBox::checkStateChanged, m_rejoiner, &Rejoiner::set_has_mod);
+
+    // Call member
+    connect(ui->lineEdit_call_members, &QLineEdit::textChanged, m_scanner, &Scanner::set_call_members);
+    //Server ID
+    connect(ui->lineEdit_server_ID, &QLineEdit::textChanged, m_rejoiner, &Rejoiner::set_server_ID);
+
+
+    // —————————— 音频对象配置 —————————— 音频对象配置 —————————— 音频对象配置 ——————————
+    // —— 1. 获取可执行文件所在目录 ——
+    // applicationDirPath() 返回可执行文件所在的文件夹（不带斜杠尾部）
+    QString exeDir = QCoreApplication::applicationDirPath();
+
+    // —— 2. 拼接出各自的 WAV 文件路径 ——
+    // 假设同级目录下有 sound1.wav、sound2.wav
+    QString wavPath1 = QDir(exeDir).filePath("P_Alarm.wav");
+    QString wavPath2 = QDir(exeDir).filePath("Log_Alarm.wav");
+
+    m_player1->setAudioOutput(m_audioOutput1);
+    m_player2->setAudioOutput(m_audioOutput2);
+
+    m_audioOutput1->setVolume(1.0);
+    m_audioOutput2->setVolume(1.0);
+    m_player1->setSource(QUrl::fromLocalFile(wavPath1));
+    m_player1->setLoops(2);       // 播放次数，1 表示播放一次；QSoundEffect::Infinite 表示循环播放
+    m_player2->setSource(QUrl::fromLocalFile(wavPath2));
+    m_player2->setLoops(2);
+
+    // —— 4. 检查文件是否存在（可选） ——
+    // 如果文件不存在，setSource 不会报错，但 play() 会静默不出声。
+    if (!QFile::exists(wavPath1)) {
+        append_log_user("P_Alarm.wav 不存在，请检查可执行目录下是否有该文件！");
+    }
+    if (!QFile::exists(wavPath2)) {
+        append_log_user("Log_Alarm.wav 不存在，请检查可执行目录下是否有该文件！");
+    }
+    // —— 5. 连接信号槽 ——
+    connect(m_scanner, &Scanner::play_alarm_sound_P, this, &DashBoard::onPlayP_AlarmSound);
+    connect(m_scanner, &Scanner::play_alarm_sound_log, this, &DashBoard::onPlayLogAlarmSound);
+    // —————————— 音频对象配置 —————————— 音频对象配置 —————————— 音频对象配置 ——————————
+
+    if (!test_ocr())
+    {
+        append_log_user("文字识别模块未通过测试，请重新启动软件或重新获取软件重试！");
+    }
+    else
+    {
+        append_log_user("文字识别模块测试成功！");
+    }
 }
 
 DashBoard::~DashBoard()
@@ -110,6 +247,7 @@ void DashBoard::stop_all()
     stop_scanner();
     stop_crash_handler();
     stop_rejoiner();
+
     emit append_log_debug("DashBoard::stop_all:\n监控关闭");
     emit append_log_user("监控关闭");
 }
@@ -122,12 +260,15 @@ void DashBoard::select_wechat_window()
     WindowSelectionDialog wechatDialog(this);
     wechatDialog.setWindowTitle("选择微信窗口");
     wechatDialog.setLabel1Text("选择微信窗口");
-    if (wechatDialog.exec() == QDialog::Accepted) {
+    if (wechatDialog.exec() == QDialog::Accepted)
+    {
         auto wechatWin = wechatDialog.selected_window();
         m_wechat_window_hwnd = wechatWin.hwnd;
         m_wechat_window_title = wechatWin.title;  // 保存窗口标题
         append_log_user(QString("选定微信窗口：%1 句柄：%2").arg(wechatWin.title).arg((qulonglong)m_wechat_window_hwnd));
-    } else {
+    }
+    else
+    {
         append_log_user("未选择微信窗口");
         QMessageBox::warning(this, "提示", "未选择微信窗口");
         return;
@@ -211,6 +352,56 @@ void DashBoard::update_overlay_range()
     }
 }
 
+void DashBoard::on_overlay_visibility_changed(Qt::CheckState state)
+{
+    if(m_wechat_window_hwnd)
+    {
+        if (state == Qt::CheckState::Checked)
+        {
+            if (!m_overlay_window)
+            {
+                m_overlay_window = new OverlayWindow(m_wechat_window_hwnd, m_wechat_pos_y, this);
+                if (!m_timer_slider_range)
+                {
+                    m_timer_slider_range = new QTimer(this);
+                    m_timer_slider_range_conn = connect(m_timer_slider_range, &QTimer::timeout, this, &DashBoard::update_overlay_range);
+                }
+                if (!m_timer_slider_range->isActive())
+                {
+                    m_timer_slider_range->start(200);
+                }
+            }
+            m_overlay_window->show();
+            append_log_user("显示微信覆盖层");
+        }
+        else
+        {
+            if(m_overlay_window)
+            {
+                m_overlay_window->hide();
+                if (m_timer_slider_range)
+                {
+                    if (m_timer_slider_range->isActive())
+                    {
+                        m_timer_slider_range->stop();
+                    }
+                    disconnect(m_timer_slider_range_conn);
+                    m_timer_slider_range->deleteLater();
+                    m_timer_slider_range = nullptr;
+                }
+                delete m_overlay_window;
+                m_overlay_window = nullptr;
+                append_log_user("隐藏微信覆盖层");
+            }
+        }
+    }
+    else {
+        append_log_user("未选择微信窗口，请选择后重试");
+        ui->checkBox_overlay_visible->setCheckState(Qt::CheckState::Unchecked);
+        return;
+    }
+}
+
 void DashBoard::handle_find_window_fail(window_type failed_window_type)
 {
     if (failed_window_type == window_type::GAME)
@@ -234,11 +425,6 @@ void DashBoard::handle_find_window_fail(window_type failed_window_type)
 void DashBoard::on_made_call(call_type type)
 {
     append_log_user(QString("已发起%1微信语音").arg(type == call_type::GROUP? "群聊" : "单人"));
-}
-
-void DashBoard::set_game_hwnd(HWND hwnd)
-{
-    m_game_hwnd = hwnd;
 }
 
 void DashBoard::proceed_rejoin()
@@ -271,7 +457,7 @@ QString get_time_stamp()
 
 void DashBoard::append_log_debug(const QString &message)
 {
-    QString logLine = QString("[%1]\n%2").arg(get_time_stamp()).arg(message);
+    QString logLine = QString("[%1]\n%2\n").arg(get_time_stamp()).arg(message);
     qDebug() << "debug output: " << logLine;
     if (ui->textBrowser_debug_log)
         ui->textBrowser_debug_log->append(logLine);
@@ -282,7 +468,7 @@ void DashBoard::append_log_user(const QString &message)
     qDebug() << "user output: " << message;
     if (ui->textBrowser_user_log)
     {
-        ui->textBrowser_user_log->append(message);
+        ui->textBrowser_user_log->append(message + "\n");
     }
 }
 
@@ -318,6 +504,59 @@ void DashBoard::closeEvent(QCloseEvent *event)
     m_sender_thread->quit();
     m_sender_thread->wait();
 
+    if (m_timer_table_CD)
+    {
+        if (m_timer_table_CD->isActive())
+        {
+            m_timer_table_CD->stop();
+        }
+        disconnect(m_timer_table_CD_conn);
+        m_timer_table_CD->deleteLater();
+        m_timer_table_CD = nullptr;
+    }
+
+    if (m_timer_slider_range)
+    {
+        if (m_timer_slider_range->isActive())
+        {
+            m_timer_slider_range->stop();
+        }
+        disconnect(m_timer_slider_range_conn);
+        m_timer_slider_range->deleteLater();
+        m_timer_slider_range = nullptr;
+    }
+
+    if (m_audioOutput1)
+    {
+        m_audioOutput1->deleteLater();
+        m_audioOutput1 = nullptr;
+    }
+
+    if (m_audioOutput2)
+    {
+        m_audioOutput2->deleteLater();
+        m_audioOutput2 = nullptr;
+    }
+
+    if (m_player1)
+    {
+        if (m_player1->isPlaying())
+        {
+            m_player1->stop();
+        }
+        m_player1->deleteLater();
+        m_player1 = nullptr;
+    }
+
+    if (m_player2)
+    {
+        if (m_player2->isPlaying())
+        {
+            m_player2->stop();
+        }
+        m_player2->deleteLater();
+        m_player2 = nullptr;
+    }
     QMainWindow::closeEvent(event);
 }
 void DashBoard::handle_server_fetched(const QList<ServerInfo> &servers)
@@ -427,6 +666,71 @@ void DashBoard::table_CD_helper()
     }
 }
 
+void DashBoard::refresh_server_combo_box()
+{
+    if (m_serverComboBoxUpdated)
+    {
+        m_serverComboBoxUpdated = false;
+        append_log_debug("DashBoard::refresh_server_combo_box:\n已将m_serverComboBoxUpdated设置为false");
+    }
+    if (!m_serverComboBoxUpdated)
+    {
+        append_log_user("服务器列表下拉菜单将在几秒后刷新！");
+    }
+}
+
+void DashBoard::handle_made_calls(call_type type)
+{
+    if (type == call_type::GROUP)
+    {
+        append_log_user("已呼出微信群语音");
+    }
+    else
+    {
+        append_log_user("已呼出微信单人语音");
+    }
+}
+
+void DashBoard::handle_crash()
+{
+    append_log_user("检测到游戏崩溃，开始处理崩溃……");
+    stop_scanner();
+    launch_crash_handler();
+}
+
+void DashBoard::handle_crashHandler_game_window_timeout()
+{
+    append_log_user("等待游戏窗口超时，崩溃处理失败，请您手动重连游戏重启监控");
+    emit _send_message(m_wechat_window_hwnd, "等待游戏窗口超时，崩溃处理失败，请您手动重连游戏重启监控");
+    stop_all();
+}
+
+void DashBoard::handle_crashHandler_start_button_timeout()
+{
+    append_log_user("等待游戏加载超时，崩溃处理失败，请您手动重连游戏重启监控");
+    emit _send_message(m_wechat_window_hwnd, "等待游戏加载超时，崩溃处理失败，请您手动重连游戏重启监控");
+    stop_all();
+}
+
+void DashBoard::handle_crashHandler_got_game_hwnd(HWND game_hwnd)
+{
+    append_log_debug("DashBoard::handle_crashHandler_got_game_hwnd:\n主窗拿到崩溃处理器传入的游戏窗口句柄");
+    m_game_hwnd = game_hwnd;
+}
+
+void DashBoard::handle_rejoiner_finished1(QString msg)
+{
+    append_log_user("重连游戏失败，请您手动重连游戏，原因：\n" + msg);
+    emit _send_message(m_wechat_window_hwnd, "重连游戏失败，请您手动重连游戏，原因：\n" + msg);
+}
+
+void DashBoard::handle_rejoiner_finished0()
+{
+    append_log_user("重连游戏成功，重启监控！");
+    emit _send_message(m_wechat_window_hwnd, "重连游戏成功，重启监控！");
+    start_monitor();
+}
+
 void DashBoard::changeAlarmKey_starved(int status)
 {
     bool blocked = status == Qt::Checked? true:false;
@@ -491,22 +795,32 @@ void DashBoard::changeAlarmKey_topublic(int status)
 void DashBoard::onPlayP_AlarmSound()
 {
     // 如果当前正在播放，则先停止再重新播放（可选）
-    if (m_effect1->isPlaying()) {
-        m_effect1->stop();
+    if (!m_play_sound)
+    {
+        append_log_debug("尝试播放报警音频P,但用户未禁用了该功能,已取消");
+        return;
+    }
+    if (m_player1->isPlaying()) {
+        m_player1->stop();
     }
     if (ui->playSoundcheckBox->isChecked()) {
-        m_effect1->play();
+        m_player1->play();
     }
 }
 
 void DashBoard::onPlayLogAlarmSound()
 {
     // 如果当前正在播放，则先停止再重新播放（可选）
-    if (m_effect2->isPlaying()) {
-        m_effect2->stop();
+    if (!m_play_sound)
+    {
+        append_log_debug("尝试播放报警音频T,但用户未禁用了该功能,已取消");
+        return;
+    }
+    if (m_player2->isPlaying()) {
+        m_player2->stop();
     }
     if (ui->playSoundcheckBox->isChecked()) {
-        m_effect2->play();
+        m_player2->play();
     }
 }
 
@@ -515,21 +829,33 @@ void DashBoard::updateCallMemberLable(QString member)
     ui->label_call_members->setText(member);
 }
 
-void DashBoard::onRejoinModeChanged(Qt::CheckState checkState)
-{
-    if (checkState == Qt::Checked)
-    {
-        m_rejoiner->set_has_mod(true);
-        append_log_user("已启用含Mod服务器重载模式！");
-    }
-    else
-    {
-        m_rejoiner->set_has_mod(false);
-        append_log_user("已禁用含Mod服务器重载模式！");
-    }
-}
-
 void DashBoard::handle_warn(QString msg)
 {
     QMessageBox::warning(this, "Warning!", msg);
+}
+
+void DashBoard::switch_to_tab_1()
+{
+    ui->Main_tabWidget->setCurrentWidget(ui->tab_1);
+}
+
+void DashBoard::switch_to_tab_2()
+{
+    ui->Main_tabWidget->setCurrentWidget(ui->tab_2);
+}
+
+void DashBoard::switch_to_tab_3()
+{
+    ui->Main_tabWidget->setCurrentWidget(ui->tab_3);
+}
+
+void DashBoard::switch_to_tab_4()
+{
+    ui->Main_tabWidget->setCurrentWidget(ui->tab_4);
+}
+
+void DashBoard::change_play_sound(Qt::CheckState checkState)
+{
+    m_play_sound = checkState == Qt::CheckState::Checked;
+    emit append_log_user(QString("已%1警报音功能").arg(m_play_sound? "启用" : "禁用"));
 }
