@@ -59,11 +59,12 @@ bool Rejoiner::click_join_card()
     if (!scan_window(m_game_hwnd))
     {
         emit log_message_Debug("Rejoiner::click_join_card:\n游戏窗口不存在");
-        emit log_message_User("游戏窗口不存在");
+        emit log_message_User("重连:游戏窗口不存在");
         return false;
     }
     if (check_5_cards(m_game_hwnd))
     {
+        emit log_message_User("重连:检测到有五张加入游戏卡片，使用5卡模式");
         click_center(m_game_hwnd);
     }
     else
@@ -71,10 +72,11 @@ bool Rejoiner::click_join_card()
         RECT rc; GetWindowRect(m_game_hwnd, &rc);
         int w = rc.right - rc.left, h = rc.bottom - rc.top;
         int x = w * 0.32, y = h / 2;
+        emit log_message_User("重连:未检测到有五张加入游戏卡片，使用普通模式");
         left_click(m_game_hwnd, x, y);
     }
     emit log_message_Debug("Rejoiner::click_join_card:\n已点击加入游戏卡片");
-    emit log_message_User("已点击加入游戏卡片");
+    emit log_message_User("重连:已点击加入游戏卡片");
     return true;
 }
 
@@ -94,6 +96,7 @@ bool Rejoiner::search_server()
     emit log_message_User("已点击搜索框");
     QThread::msleep(200);
     paste_text(m_server_ID);
+    emit log_message_User("已粘贴服务器代码" + m_server_ID);
     return true;
 }
 
@@ -226,6 +229,9 @@ void Rejoiner::handle_start_signal()
             emit finished_1("Rejoiner::handle_start_signal:搜索服务器失败");
             return;
         }
+        emit log_message_Debug("Rejoiner::handle_start_signal:\nsleep 5秒等待服务器搜索加载");
+        emit log_message_User("等待服务器列表加载5秒");
+        QThread::msleep(5000);
         if (!select_first_server())
         {
             emit log_message_Debug("Rejoiner::handle_start_signal:\n选择第一个服务器失败，重连终止！");
