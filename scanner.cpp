@@ -321,8 +321,8 @@ QMap<QString, QPair<QStringList, bool>> Scanner::split_tribe_logs(const QString 
         }
 
         // —— 检查该关键词是否被用户设置为“屏蔽”状态，如果屏蔽，则跳过
-        bool blocked = !allow_this_keyword(matched_keyword);
-        if (blocked) {
+        if (!allow_this_keyword(matched_keyword))
+        {
             emit log_message_Debug("Scanner::split_tribe_logs:\n关键词 \"" + matched_keyword + "\" 已屏蔽，跳过本条日志 // Keyword blocked, skip: " + matched_keyword);
             continue;
         }
@@ -457,7 +457,7 @@ bool Scanner::allow_this_keyword(const QString &key)
     else
     {
         emit log_message_Debug(QString("Scanner::allow_this_keyword:\n关键词“%1”不在过滤器列表中，已放行").arg(key));
-        return false;
+        return true;
     }
 }
 
@@ -598,6 +598,7 @@ void Scanner::handle_parasaurolophus_alert(const QString &OCR_resultconst, const
 
 void Scanner::handle_tribe_alerts(const QImage &screenshot, const QMap<QString, QPair<QStringList, bool> > &logs_map)
 {
+    bool is_serious = false;
     // 遍历 map_KwToLogList，对每个关键词 matched_keyword，只发一次合并预告
     for (auto it = logs_map.constBegin(); it != logs_map.constEnd(); ++it)
     {
@@ -605,7 +606,8 @@ void Scanner::handle_tribe_alerts(const QImage &screenshot, const QMap<QString, 
         const QList<QString> &logs = it.value().first; // e.g. ["[Day 1,10:05:07:] foo", "[Day 1,10:05:10:] bar", ...]
 
         // 判断本关键词 matched_keyword 属于严重还是非严重：
-        bool is_serious = it.value().second;
+        if (!is_serious)
+            is_serious = it.value().second;
 
         // 构造合并后的“部落日志”文本：列出所有 logs 列表里的条目
         // 可以先写好一个头部说明，再循环拼接所有“[ts] 内容”
@@ -640,18 +642,18 @@ void Scanner::handle_tribe_alerts(const QImage &screenshot, const QMap<QString, 
         if (m_need_text_T)
         {
             send_text(tribeText);
-            send_image(screenshot);
         }
-        if (m_need_call_T && is_serious)
+    }
+    send_image(screenshot);
+    if (m_need_call_T && is_serious)
+    {
+        if (m_is_group_call)
         {
-            if (m_is_group_call)
-            {
-                make_group_call();
-            }
-            else
-            {
-                make_call();
-            }
+            make_group_call();
+        }
+        else
+        {
+            make_call();
         }
     }
     emit increase_alarm_count();
@@ -932,6 +934,10 @@ void Scanner::scan()
         emit log_message_Debug("Scanner::scan: \n部落日志区域OCR失败 // OCR tribe log area faild");
         return;
     }
+
+    emit got_picture_P(area_P);
+    emit got_picture_log(area_log);
+
     if (check_parasaurolophus_alarm(result_P, keyword_p))
     {
         handle_parasaurolophus_alert(result_P, keyword_p);
