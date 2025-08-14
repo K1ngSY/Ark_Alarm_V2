@@ -164,5 +164,6 @@ void Sender::start_CD()
     {
         m_timer_making_call->start(180000);
         emit log_message_User("微信语音功能进入冷却(3min)！");
+        emit log_message_Debug("Sender::start_CD:\n微信语音功能进入冷却(3min)！");
     }
 }
