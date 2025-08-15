@@ -78,6 +78,11 @@ bool OCR_area_P(const QImage &input_full_game_window, QString &recognized_text, 
         return false;
     }
     // 拆蓝色通道并赋值回 pic
+
+    // 通道 0 → 蓝色 (Blue)
+    // 通道 1 → 绿色 (Green)
+    // 通道 2 → 红色 (Red)
+
     // 蓝色通道 索引 0
     pic = CvMat_to_QImage(ch[0]);
     debug_roi = pic;
@@ -617,4 +622,55 @@ bool _test_ocr()
         return true;
     }
 
+}
+
+bool OCR_area_death(const QImage &input_full_game_window, QString &recognized_text, QImage &debug_roi)
+{
+    int w = input_full_game_window.width();
+    int h = input_full_game_window.height();
+    QImage pic = input_full_game_window.copy(int(w * 882 / 1920), int(h * 15 / 1080), int(w * 146 / 1920), int(h * 26 / 1080));
+    cv::Mat m = QImage_to_cvMat(pic);
+    std::vector<cv::Mat> ch;
+    cv::split(m, ch);
+    if (ch.size() < 3)
+    {
+        qDebug() << "OCR_area_death:\npic 通道不足";
+        return false;
+    }
+    // 拆蓝色通道并赋值回 pic
+
+    // 通道 0 → 蓝色 (Blue)
+    // 通道 1 → 绿色 (Green)
+    // 通道 2 → 红色 (Red)
+
+    // 反转颜色
+    cv::Mat pic_inv;
+    cv::bitwise_not(ch[2], pic_inv);
+    pic = CvMat_to_QImage(pic_inv);
+    debug_roi = pic;
+    if (!OCR_image(pic, recognized_text))
+    {
+        qDebug() << "OCR_area_death:\nOCR识别失败！";
+        return false;
+    }
+    return true;
+}
+
+bool OCR_area_beds_select_ui(const QImage &input_full_game_window, QString &recognized_text, QImage &debug_roi)
+{
+    int w = input_full_game_window.width();
+    int h = input_full_game_window.height();
+    QImage pic = input_full_game_window.copy(int(w * 329 / 1920), int(h * 134 / 1080), int(w * 128 / 1920), int(h * 42 / 1080));
+
+    // 反转颜色
+    cv::Mat pic_inv;
+    cv::bitwise_not(QImage_to_cvMat(pic), pic_inv);
+    pic = CvMat_to_QImage(pic_inv);
+    debug_roi = pic;
+    if (!OCR_image(pic, recognized_text))
+    {
+        qDebug() << "OCR_area_beds_select_ui:\nOCR识别失败！";
+        return false;
+    }
+    return true;
 }

@@ -132,7 +132,8 @@ private:
         return false;
     }
     // Only ensure, doesn't do anything else.
-    bool ensure_tribe_log_open();
+    // 0=open 1=fail 2=died
+    int ensure_tribe_log_open();
 
     bool check_parasaurolophus_alarm(const QString &ocr_result, QString &keyword_out);
     inline bool first_round()

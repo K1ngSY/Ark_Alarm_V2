@@ -11,6 +11,10 @@ QImage CvMat_to_QImage(const cv::Mat &in_mat);
 bool OCR_image(const QImage &input_image, QString &recognized_text);
 bool OCR_area_P(const QImage &input_full_game_window, QString &recognized_text, QImage &debug_roi);
 bool OCR_area_T(const QImage &input_full_game_window, QString &recognized_text, QImage &debug_roi);
+bool OCR_area_death(const QImage &input_full_game_window, QString &recognized_text, QImage &debug_roi);
+bool OCR_area_beds_select_ui(const QImage &input_full_game_window, QString &recognized_text, QImage &debug_roi);
+bool OCR_area_bed_exist(const QImage &input_full_game_window, QString &recognized_text, QImage &debug_roi);
+
 // It will call windows API.
 bool print_window(HWND hwnd, QImage &image);
 // Scan game window, looking for "Start Game" button.

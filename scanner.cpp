@@ -507,7 +507,7 @@ bool Scanner::bind_game_window(const QString &title)
 
 }
 
-bool Scanner::ensure_tribe_log_open()
+int Scanner::ensure_tribe_log_open()
 {
     int tries = 0;
     QString OCR_result;
@@ -515,45 +515,68 @@ bool Scanner::ensure_tribe_log_open()
     if (!print_window(m_game_window_hwnd, game_screenshot))
     {
         emit log_message_Debug("Scanner::ensure_tribe_log_open:\n截图失败 // Capture failed!");
-        return false;
+        return 1;
     }
     if (!OCR_area_T(game_screenshot, OCR_result, dummy_image))
     {
         emit log_message_Debug("Scanner::ensure_tribe_log_open:\nOCR failed");
-        return false;
+        return 1;
     }
     while (OCR_result.isEmpty() && tries < 10)
     {
-        emit log_message_Debug("Scanner::ensure_tribe_log_open:\n部落日志未打开，尝试自动打开 // Tribe log not open, retry");
+        emit log_message_Debug("Scanner::ensure_tribe_log_open:\n部落日志为空，分析中 // Tribe log not open, analysing...");
         if (!scan_window(m_game_window_hwnd))
         {
             emit log_message_Debug("Scanner::ensure_tribe_log_open:\n游戏窗口不存在！");
             emit log_message_User("检测到游戏窗口不存在");
-            return false;
+            return 1;
         }
         click_center_and_keyL(m_game_window_hwnd);
         QThread::msleep(400);
         if (!print_window(m_game_window_hwnd, game_screenshot))
         {
             emit log_message_Debug("Scanner::ensure_tribe_log_open:\n截图失败 // Capture failed!");
-            return false;
+            return 1;
+        }
+        // Check died
+        if (!OCR_area_death(game_screenshot, OCR_result, dummy_image))
+        {
+            emit log_message_Debug("Scanner::ensure_tribe_log_open:\nOCR failed");
+            return 1;
+        }
+        else
+        {
+            if (!OCR_result.isEmpty())
+            {
+                QStringList keys = {"died", "死"};
+                for (QString key : keys)
+                {
+                    if (OCR_result.contains(key, Qt::CaseInsensitive))
+                    {
+                        emit log_message_Debug("Scanner::ensure_tribe_log_open:\n检测到角色死亡！");
+                        emit log_message_User("检测到角色死亡");
+                        return 2;
+                    }
+                }
+            }
         }
         if (!OCR_area_T(game_screenshot, OCR_result, dummy_image))
         {
             emit log_message_Debug("Scanner::ensure_tribe_log_open:\nOCR failed");
-            return false;
+            return 1;
         }
         if (!OCR_result.isEmpty()) {
             emit log_message_Debug("Scanner::ensure_tribe_log_open:\n部落日志已打开 // Tribe log is open now.");
-            return true;
+            return 0;
         }
         ++tries;
     }
-    if (tries >= 10 && OCR_result.isEmpty()) {
+    if (tries >= 10 && OCR_result.isEmpty())
+    {
         emit log_message_Debug("Scanner::ensure_tribe_log_open:\n无法打开部落日志 // Unable to open tribe log");
-        return false;
+        return 1;
     }
-    return true;
+    return 0;
 }
 
 bool Scanner::check_parasaurolophus_alarm(const QString &ocr_result, QString &keyword_out)
@@ -1004,7 +1027,21 @@ void Scanner::scan()
         emit log_message_Debug("Scanner::scan: \n副栉龙区域OCR失败 // OCR parasaurolophus area faild");
         return;
     }
-    if (!ensure_tribe_log_open())
+    int log_status_code = ensure_tribe_log_open();
+    switch(log_status_code)
+    {
+    case 0:
+        emit log_message_Debug("Scanner::scan: \n部落日志打开状态正常 // Tribe log is OK");
+        break;
+    case 1:
+        emit log_message_Debug("Scanner::scan: \n部落日志无法打开 // Unable to open tribe log");
+        return;
+    case 2:
+        todo!!!
+        // 直接在Scanner中执行复活角色流程
+    }
+
+    if (ensure_tribe_log_open())
     {
         emit log_message_Debug("Scanner::scan: \n部落日志无法打开 // Unable to open tribe log");
         return;
