@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>858</width>
+    <width>922</width>
     <height>630</height>
    </rect>
   </property>
@@ -288,7 +288,7 @@
              <property name="geometry">
               <rect>
                <x>0</x>
-               <y>-510</y>
+               <y>-496</y>
                <width>369</width>
                <height>984</height>
               </rect>
@@ -748,7 +748,13 @@
                         </widget>
                        </item>
                        <item>
-                        <widget class="QSpinBox" name="spinBox">
+                        <widget class="QSpinBox" name="spinBox_key_eat">
+                         <property name="sizePolicy">
+                          <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                           <horstretch>0</horstretch>
+                           <verstretch>0</verstretch>
+                          </sizepolicy>
+                         </property>
                          <property name="maximum">
                           <number>9</number>
                          </property>
@@ -771,7 +777,13 @@
                         </widget>
                        </item>
                        <item>
-                        <widget class="QSpinBox" name="spinBox_2">
+                        <widget class="QSpinBox" name="spinBox_key_drink">
+                         <property name="sizePolicy">
+                          <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                           <horstretch>0</horstretch>
+                           <verstretch>0</verstretch>
+                          </sizepolicy>
+                         </property>
                          <property name="maximum">
                           <number>9</number>
                          </property>
@@ -830,7 +842,7 @@
                      </widget>
                     </item>
                     <item>
-                     <widget class="QLineEdit" name="lineEdit"/>
+                     <widget class="QLineEdit" name="lineEdit_beds"/>
                     </item>
                    </layout>
                   </widget>
@@ -1040,7 +1052,7 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>351</width>
+               <width>383</width>
                <height>488</height>
               </rect>
              </property>
