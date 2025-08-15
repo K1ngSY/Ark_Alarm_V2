@@ -493,14 +493,18 @@ bool Scanner::bind_game_window(const QString &title)
     // this->m_game_window_hwnd = ::FindWindowW(nullptr, w.c_str());
     // if (this->m_game_window_hwnd) return true;
     // else return false;
-    if (!bind_window(title, m_game_window_hwnd))
-    {
-        return false;
-    }
-    else
-    {
-        return true;
-    }
+
+    // if (!bind_window(title, m_game_window_hwnd))
+    // {
+    //     return false;
+    // }
+    // else
+    // {
+    //     return true;
+    // }
+
+    return bind_window(title, m_game_window_hwnd);
+
 }
 
 bool Scanner::ensure_tribe_log_open()
@@ -675,107 +679,175 @@ void Scanner::set_filter_key(QString key, bool status)
 void Scanner::full_test()
 {
     bool has_error = false;
-    bool has_wechat_hwnd = true;
-    QStringList results;
+    bool has_wechat_hwnd = m_TPPW_hwnd;
+    bool has_wechat_window = has_wechat_hwnd? scan_window(m_TPPW_hwnd) : false;
+    bool has_game_window = bind_game_window(m_game_window_title);
+    QStringList results_CN;
+    QStringList results_EN;
+    QString welcome;
 
-    emit log_message_User("检测微信窗口句柄……");
-    if (!m_TPPW_hwnd) {
-        emit send_warn("Scanner::full_test: \n通讯平台窗口句柄不存在！");
+    welcome += "——\n";
+    welcome += "|Testing:\n";
+    welcome += "|○ WeChat Window\n";
+    welcome += "|○ Game Window\n";
+    welcome += "|○ Game Crash\n";
+    welcome += "|○ Print Screen\n";
+    welcome += "|○ Send Text\n";
+    welcome += "|○ Send Image\n";
+    welcome += "|○ Make Call\n";
+    welcome += "——\n\n";
+
+    welcome += "——\n";
+    welcome += "|全量测试:\n";
+    welcome += "|○ 微信窗口\n";
+    welcome += "|○ 游戏窗口\n";
+    welcome += "|○ 游戏崩溃\n";
+    welcome += "|○ 截图\n";
+    welcome += "|○ 消息发送\n";
+    welcome += "|○ 图片发送\n";
+    welcome += "|○ 微信语音\n";
+    welcome += "——\n";
+
+    emit log_message_User(welcome);
+
+    emit log_message_User("检测微信窗口……");
+    if (!has_wechat_hwnd) {
+        emit send_warn("Full Test:\n微信窗口句柄不存在！");
         emit log_message_User("微信窗口句柄不存在！\n");
-        results.append("×微信窗口句柄: 不存在(未配置)");
-        has_wechat_hwnd = false;
+        results_CN.append("|× 微信窗口句柄: 不存在(未配置)");
+        results_EN.append("|× WeChat HWND: Doesn't exist");
         has_error = true;
     }
     else
     {
-        emit log_message_User("微信窗口句柄检测通过！\n");
-        results.append("√微信窗口句柄: 正常");
+        emit log_message_User("微信窗口句柄存在！\n");
+        results_CN.append("|√ 微信窗口句柄: 正常");
+        results_EN.append("|√ WeChat HWND: OK");
+        if (!has_wechat_window)
+        {
+            emit log_message_User("微信窗口不存在！");
+            results_CN.append("|× 微信窗口: 不存在");
+            results_EN.append("|× WeChat Window: Doesn't exist");
+        }
+        else
+        {
+            emit log_message_User("微信窗口存在！");
+            results_CN.append("|√ 微信窗口: 存在");
+            results_EN.append("|√ WeChat Window: OK");
+        }
     }
 
-    bool has_game_window = true;
-    emit log_message_User("检测是否存在游戏窗口……");
-    if (!bind_game_window(m_game_window_title))
+
+    emit log_message_User("检测游戏窗口……");
+    if (!has_game_window)
     {
         emit log_message_Debug("Scanner::full_test: \n无法绑定游戏窗口！");
         emit log_message_User("游戏窗口不存在！\n");
-        results.append("×游戏窗口: 不存在(未启动)");
+        results_CN.append("|× 游戏窗口: 不存在(未启动)");
+        results_EN.append("|× Game Window: Doesn't exist");
         has_game_window = false;
         has_error = true;
     }
     else
     {
         emit log_message_User("游戏窗口检测通过！\n");
-        results.append("√游戏窗口: 正常");
+        results_CN.append("|√ 游戏窗口: 正常");
+        results_EN.append("|√ Game Window: OK");
     }
 
     if (has_game_window)
     {
-        emit log_message_User("游戏窗口存在！");
         emit log_message_User("检测是否存在崩溃窗口……");
         if (!check_windows_and_crash())
         {
             emit log_message_Debug("Scanner::full_test: \n游戏窗口未就绪");
             emit log_message_User("游戏状态异常！\n");
-            results.append("×崩溃窗口: 存在(游戏已崩溃)");
+            results_CN.append("|× 崩溃窗口: 存在(游戏已崩溃)");
+            results_EN.append("|× Game Crash: Crashed");
             has_error = true;
         }
         else
         {
             emit log_message_User("崩溃窗口检测通过！\n");
-            results.append("√崩溃窗口: 正常(无崩溃窗口)");
+            results_CN.append("|√ 崩溃窗口: 正常(无崩溃窗口)");
+            results_EN.append("|√ Game Crash: OK");
         }
     }
     else
     {
         emit log_message_User("游戏窗口不存在， 跳过游戏窗口状态检测！");
+        results_CN.append("|○ 游戏崩溃: 跳过");
+        results_EN.append("|○ Game Crash: Skipped");
     }
 
     if (has_wechat_hwnd)
     {
+        HWND test_hwnd = has_game_window? m_game_window_hwnd : m_TPPW_hwnd;
+
         emit log_message_User("测试截图可用性……");
         QImage wechat_screenshot;
-        if(!print_window(m_TPPW_hwnd, wechat_screenshot))
+        if(!print_window(test_hwnd, wechat_screenshot))
         {
             emit log_message_Debug("Scanner::full_test: \n截图失败 // Unable to take screenshot");
             emit log_message_User("截图失败！\n");
-            results.append("×截图可用性: 不可用");
+            results_CN.append("|× 截图可用性: 不可用");
+            results_EN.append("|× Screenshot: Unaviliable");
             has_error = true;
         }
         else
         {
             emit log_message_User("测试截图可用性检测通过！\n");
-            results.append("√截图可用性: 正常");
+            results_CN.append("|√ 截图可用性: 正常");
+            results_EN.append("|√ Screenshot: OK");
         }
 
         emit log_message_User("测试文本发送……");
         send_text("K报警器测试:\n测试文本");
+        results_CN.append("|● 文本发送: 查看微信以确认");
+        results_EN.append("|● Send Text: Check it in WeChat");
+
         if (!wechat_screenshot.isNull())
         {
             emit log_message_User("测试图片发送……");
             send_text("K报警器测试:\n测试图片↓");
             send_image(wechat_screenshot);
+            results_CN.append("|● 图片发送: 查看微信以确认");
+            results_EN.append("|● Send Image: Check it in WeChat");
         }
         else
         {
             emit log_message_User("截图失败，跳过图片发送测试");
+            results_CN.append("|○ 图片发送: 跳过");
+            results_EN.append("|○ Send Image: Skipped");
         }
 
         emit log_message_User("测试微信语音……");
-        emit log_message_User("注意：\n若您启用了微信群呼功能，请您及时配置群呼成员");
+        emit log_message_User("注意：\n请确保您已经正确配置微信语音按钮位置\n若您启用了微信群呼功能，请您配置群呼成员");
         if (m_is_group_call)
         {
             make_group_call();
-            emit log_message_User("发起群语音！");
+            emit log_message_User("发起微信群语音！");
         }
         else
         {
             make_call();
-            emit log_message_User("发起Single语音！");
+            emit log_message_User("发起微信语音！");
         }
+        results_CN.append("|● 微信语音: 查看微信以确认");
+        results_EN.append("|● Make Call: Check it in WeChat");
     }
     else
     {
-        emit log_message_User("微信窗口句柄不存在，跳过截图测试和文本与图片测试！");
+        emit log_message_User("微信窗口未配置，已经跳过以下测试:\n1.截图\n2.文本发送\n3.图片发送\n4.微信语音");
+
+        results_CN.append("|○ 截图: 跳过");
+        results_EN.append("|○ Screenshot: Skipped");
+        results_CN.append("|○ 文本发送: 跳过");
+        results_EN.append("|○ Send Text: Skipped");
+        results_CN.append("|○ 图片发送: 跳过");
+        results_EN.append("|○ Send Image: Skipped");
+        results_CN.append("|○ 微信语音: 跳过");
+        results_EN.append("|○ Make Call: Skipped");
     }
     emit log_message_User("测试报警音播放……");
     emit play_alarm_sound_P();
@@ -784,11 +856,19 @@ void Scanner::full_test()
 
     // Generate report.
     QString report;
-    for (QString r : results)
+    report.append("——\n|Test Result:\n");
+    for (QString r : results_EN)
     {
         report.append(r + "\n");
     }
-    emit log_message_User("全量测试结果:\n" + report + "\n");
+    report.append("——\n\n——\n|全量测试结果:\n");
+    for (QString r : results_CN)
+    {
+        report.append(r + "\n");
+    }
+    report.append("——\n");
+    emit log_message_User(report);
+
     if (has_error)
     {
         emit log_message_User("当前游戏环境不支持您开始监控！\n请您修复所有检测到的问题并重新运行测试！");
