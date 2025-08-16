@@ -14,9 +14,14 @@ const QString GAME_WINDOW_TITLE = "ArkAscended";
 Scanner::Scanner(QObject *parent)
     : KWorker{parent}
 {
+    // All pointers in the constructor need to be assigned to nullptr
     // 所有指针在构造函数里需要全部赋值为 nullptr
-    this->m_mCycle_timer_interval       = 10000; // 主任务循环时间暂时定为10秒一次
+    this->m_mCycle_timer_interval       = 10000;   // The main task loop time is temporarily set to once every 10 seconds 
+                                                   //主任务循环时间暂时定为10秒一次
+                                                         
+                                                 // Group call member refreshTimer
     this->m_mCall_member_timer_interval = 2000;  // 群呼成员刷新Timer
+                                                 
 
     this->m_call_member_check_timer = nullptr;
     this->m_cycle_timer             = nullptr;
@@ -36,7 +41,7 @@ Scanner::Scanner(QObject *parent)
     this->m_game_window_title = GAME_WINDOW_TITLE;
     this->m_TPPW_title = QString();
 
-
+    // Set the storage path for the persistent file (under the program's directory)
     // 设置持久化文件存放路径（程序所在目录下）
     this->m_log_file_path = QCoreApplication::applicationDirPath() + "/tribe_logs.txt";
 
@@ -79,7 +84,8 @@ Scanner::Scanner(QObject *parent)
     m_all_log_keywords.append(m_serious_log_keywords);
     m_all_log_keywords.append(m_nonSerious_log_keywords);
 
-    // ---------初始化过滤器字典---------
+   // ---------Initialize the filter dictionary---------
+  // ---------初始化过滤器字典---------
     m_alarm_filter["starved"] = false;
     m_alarm_filter["饿死"] = false;
 
@@ -106,14 +112,19 @@ Scanner::Scanner(QObject *parent)
 
     m_alarm_filter["demoted"] = false;
     m_alarm_filter["降职"] = false;
+    
+    // Public tray
     // 公开盘子
     m_alarm_filter["to public"] = false;
+    // Private tray
     // 私有盘子
     m_alarm_filter["to private"] = false;
+    // Frozen Dragon
     // 冻龙
     m_alarm_filter["froze"] = false;
+    // Initalize the filter dictionary end
     // ---------初始化过滤器字典end---------
-
+    // Initialize the alarm Chinese prompt word dictionary
     // ---------初始化警报中文提示词字典---------
     m_alarm_promts_Chinese["被摧毁"] = "您的建筑被摧毁！";
     m_alarm_promts_Chinese["击杀"] = "您的成员被杀！";
@@ -240,6 +251,7 @@ QMap<QString, QPair<QStringList, bool>> Scanner::split_tribe_logs(const QString 
     QRegularExpression rx(R"(Day\s*\d+[,，]\s*\d{1,2}:\d{2}:\d{2}:)");
     auto it = rx.globalMatch(raw_tribe_log);
 
+    // Record the starting position and text of each match
     // 记录每个匹配的起始位置和文本
     QVector<int> positions;
     QStringList stamps;
@@ -249,9 +261,11 @@ QMap<QString, QPair<QStringList, bool>> Scanner::split_tribe_logs(const QString 
         positions.append(m.capturedStart());
         stamps.append(m.captured(0));
     }
+    // Add the ending to make it easier to cut the last segment
     // 加上末尾，便于切最后一段
     positions.append(raw_tribe_log.length());
 
+    // Slice segment by segment: remove the timestamp prefix, keeping only the subsequent content
     // 逐段切片：去掉时间戳前缀，只留后续内容
     for (int i = 0; i < stamps.size(); ++i)
     {
@@ -260,24 +274,31 @@ QMap<QString, QPair<QStringList, bool>> Scanner::split_tribe_logs(const QString 
         QString content = segment.mid(stamps[i].length()).trimmed();
         entries.append(qMakePair(stamps[i], content));
     }
+    // Sort the split entries in descending order by timestamp (optional, only to ensure the latest logs are processed first)
     // 将拆分后的条目按时间戳做降序排列（可选，仅保证最新日志先处理）
     std::sort(entries.begin(), entries.end(), [](const auto &a, const auto &b) {return a.first > b.first;});
+    // Data structure for merging entries with the same keyword:
     // 用于合并同关键词的数据结构：
+    // key = matchedKeywords, value = a list of multiple "[timestamp] content" entries.
     // key = matchedKeywords，value = 多条“[时间戳] 内容”的列表.
     QMap<QString, QPair<QStringList, bool>> map_keywords_to_list;
 
+    // Iterate item by item: first persist and de-duplicate, then categorize and finally accumulate into map_KwToLogList
     // 逐条遍历：先持久化去重、再分类、最后积累到 map_KwToLogList
     for (const auto &p : entries)
-    {
-        const QString &ts      = p.first;    // 例如 "Day 1,10:05:07"
-        const QString &content = p.second;   // 该条日志剩余内容
-
-        // —— 持久化文件去重：appendIfNewLogEntry 返回 true 才是“新日志”
+    {                                        // Eng: For example "Day 1, 10:05:07"
+        const QString &ts      = p.first;   // 例如 "Day 1,10:05:07"
+        const QString &content = p.second;  // Eng: The remaining content of this log entry
+                                            // 该条日志剩余内容
+    
+      // —— Persistent file de-duplication: only when appendIfNewLogEntry returns true is it considered a "new log"                             
+     // —— 持久化文件去重：appendIfNewLogEntry 返回 true 才是“新日志”
         if (!append_new_log(ts, content))
         {
             emit log_message_Debug("Scanner::split_tribe_logs: \n已存在日志，跳过: " + ts + "\n // Log already exists, skip");
             continue;
         }
+        // —— Classfication check: verify whether it matches critical keywords or non-critical keywords
         // —— 分类检测：检查是否匹配严重关键词或非严重关键词
         bool isSerious = false, isNonSerious = false;
         QString matched_keyword;
@@ -314,12 +335,14 @@ QMap<QString, QPair<QStringList, bool>> Scanner::split_tribe_logs(const QString 
             }
         }
 
+        //  If it belongs to neither critical nor non-critical, then no alert is triggered and it is not accumulated
         // 如果既不属于严重也不属于非严重，就不做报警，也不累计
         if (!(isSerious || isNonSerious))
         {
             continue;
         }
 
+        // —— Check whether the keyword has been set to "blocked" by the user; if blocked, skip it
         // —— 检查该关键词是否被用户设置为“屏蔽”状态，如果屏蔽，则跳过
         if (!allow_this_keyword(matched_keyword))
         {
@@ -327,6 +350,7 @@ QMap<QString, QPair<QStringList, bool>> Scanner::split_tribe_logs(const QString 
             continue;
         }
 
+        // —— Add the string in the format "[timestamp] content" to the map_KwToLogList[matchedKw] list
         // —— 把“[时间戳] 内容”格式的字符串，添加到 map_KwToLogList[matchedKw] 列表中
         QString oneLine = QString("[%1] %2").arg(ts).arg(content);
         map_keywords_to_list[matched_keyword].first.append(oneLine);
@@ -347,6 +371,7 @@ bool Scanner::append_new_log(const QString &ts, const QString &content)
         emit log_message_Debug(QString("Scanner::append_new_log:\n已打开位于 %1 的本地日志文件").arg(m_log_file_path));
     }
 
+    // Eng: 1) First check whether the file already contains that timestamp
     // 1) 先检查文件中是否已有该时间戳
     QTextStream in(&file);
     bool exists = false;
@@ -358,6 +383,7 @@ bool Scanner::append_new_log(const QString &ts, const QString &content)
         }
     }
 
+    // Eng: 2) If it does not exist, move to the end and write the new entry
     // 2) 如果不存在，则移动到末尾，写入新条目
     if (!exists) {
         QTextStream out(&file);
@@ -397,8 +423,10 @@ void Scanner::make_group_call()
     emit s_send_group_call(m_TPPW_hwnd, m_call_members, m_click_coordinate_x, m_click_coordinate_y);
     emit made_call(GROUP);
 //     left_click(m_TPPW_hwnd, m_click_coordinate_x, m_click_coordinate_y);
+//     // Wait for the popup window to fully appear
 //     //等待弹窗完全出现.
 //     QThread::msleep(300);
+//.    // 1) Locate the "WeChat Select Members" dialog box
 //     // 1) 找到“微信选择成员”对话框.
 //     std::wstring title = QStringLiteral("微信选择成员").toStdWString();
 //     HWND dlg = FindWindowW(nullptr, title.c_str());
@@ -409,6 +437,7 @@ void Scanner::make_group_call()
 //     SetForegroundWindow(dlg);
 //     QThread::msleep(30);
 
+//     // Obtain the current screen resolution and calculate the horizontal/vertical scaling ratio
 //     // 2) 获取当前屏幕分辨率，计算横/纵缩放比例.
 //     int screenW = GetSystemMetrics(SM_CXSCREEN);
 //     int screenH = GetSystemMetrics(SM_CYSCREEN);
