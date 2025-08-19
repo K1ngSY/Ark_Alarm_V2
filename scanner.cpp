@@ -581,6 +581,7 @@ int Scanner::ensure_tribe_log_open()
         {
             emit log_message_Debug("Scanner::ensure_tribe_log_open:\n检测到角色死亡！");
             emit log_message_User("检测到角色死亡");
+            return 2;
         }
         else
         {
@@ -592,11 +593,12 @@ int Scanner::ensure_tribe_log_open()
         {
             emit log_message_Debug("Scanner::ensure_tribe_log_open:\n检测到角色死亡(重生界面)！");
             emit log_message_User("检测到角色死亡(重生界面)");
+            return 2;
         }
         else
         {
-            emit log_message_Debug("Scanner::ensure_tribe_log_open:\n角色未死亡！");
-            emit log_message_User("角色未死亡");
+            emit log_message_Debug("Scanner::ensure_tribe_log_open:\n角色未死亡(重生界面)！");
+            emit log_message_User("角色未死亡(重生界面)");
         }
 
         OCR_result = QString();
