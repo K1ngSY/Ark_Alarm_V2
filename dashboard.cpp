@@ -139,11 +139,12 @@ DashBoard::DashBoard(QWidget *parent)
     connect(m_rejoiner, &Rejoiner::finished_0, this, &DashBoard::handle_rejoiner_finished0);
 
     connect(ui->checkBox_is_group, &QCheckBox::checkStateChanged, m_scanner, &Scanner::update_group_call_status);
-
+    // Toggle Buttons
     connect(ui->toggleButton_call_alarm_T, &ToggleButton::toggled, m_scanner, &Scanner::set_need_call_T);
     connect(ui->toggleButton_call_alarm_P, &ToggleButton::toggled, m_scanner, &Scanner::set_need_call_P);
     connect(ui->toggleButton_text_alarm_T, &ToggleButton::toggled, m_scanner, &Scanner::set_need_text_T);
     connect(ui->toggleButton_text_alarm_P, &ToggleButton::toggled, m_scanner, &Scanner::set_need_call_P);
+    connect(ui->toggleButton_auto_respawn, &ToggleButton::toggled, m_scanner, &Scanner::set_enable_auto_respawn);
 
     // PushButtons
     connect(ui->pushButton_start, &QPushButton::clicked, this, &DashBoard::start_monitor);
@@ -190,8 +191,10 @@ DashBoard::DashBoard(QWidget *parent)
 
     // Call member
     connect(ui->lineEdit_call_members, &QLineEdit::textChanged, m_scanner, &Scanner::set_call_members);
-    //Server ID
+    // Server ID
     connect(ui->lineEdit_server_ID, &QLineEdit::textChanged, m_rejoiner, &Rejoiner::set_server_ID);
+    // Bed Name
+    connect(ui->lineEdit_beds, &QLineEdit::textChanged, m_scanner, &Scanner::set_bed_name);
 
 
     // —————————— 音频对象配置 —————————— 音频对象配置 —————————— 音频对象配置 ——————————

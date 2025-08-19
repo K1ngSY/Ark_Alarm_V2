@@ -67,6 +67,8 @@ private:
     // 持久化日志文件路径
     QString m_log_file_path;
 
+    QString m_bed_name;
+
     QStringList m_all_log_keywords;
     QStringList m_serious_log_keywords;
     QStringList m_nonSerious_log_keywords;
@@ -84,6 +86,7 @@ private:
     bool m_need_call_P;
     bool m_need_text_T;
     bool m_need_call_T;
+    bool m_enable_auto_respawn;
 
     QTimer *m_cycle_timer;
     QTimer *m_call_member_check_timer;
@@ -154,12 +157,24 @@ private:
     void handle_tribe_alerts(const QImage &screenshot, const QMap<QString, QPair<QStringList, bool>> &logs_map);
     QString make_time_stamp();
 
+    bool auto_respawn();
+
+    bool check_die(const QImage &sc);
+
+    bool check_bed(const QImage &sc);
+
+    bool select_bed();
+
+    void default_respawn();
+
 public slots:
     void set_filter_key(QString key, bool status);
     void full_test();
     void update_group_call_status(Qt::CheckState state);
 
     void set_call_members (QString members);
+
+    void set_bed_name(const QString &name);
 
     void set_need_text_P(bool status)
     {
@@ -221,6 +236,20 @@ public slots:
         }
     }
 
+    void set_enable_auto_respawn(bool status)
+    {
+        this->m_enable_auto_respawn = status;
+        if(status)
+        {
+            emit log_message_User(QString("已启用自动复活"));
+            emit log_message_Debug(QString("set_enable_auto_respawn = True"));
+        }
+        else
+        {
+            emit log_message_User(QString("已禁用自动复活"));
+            emit log_message_Debug(QString("set_enable_auto_respawn = False"));
+        }
+    }
 
 private slots:
     /// The real function launches the main assign.

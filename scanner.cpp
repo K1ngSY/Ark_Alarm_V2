@@ -28,12 +28,13 @@ Scanner::Scanner(QObject *parent)
     this->m_TPPW_hwnd               = nullptr;
     this->m_game_window_hwnd        = nullptr;
 
-    this->m_is_group_call = false;
-    this->m_need_call_P    = false;
-    this->m_need_text_P    = false;
-    this->m_need_call_T    = false;
-    this->m_need_text_T    = false;
-    this->m_first_round   = true;
+    this->m_is_group_call           = false;
+    this->m_need_call_P             = false;
+    this->m_need_text_P             = false;
+    this->m_need_call_T             = false;
+    this->m_need_text_T             = false;
+    this->m_first_round             = true;
+    this->m_enable_auto_respawn     = false;
 
     this->m_click_coordinate_x = 20;
     this->m_click_coordinate_y = 20;
@@ -204,19 +205,26 @@ void Scanner::set_click_pos_y(const int &y)
 {
     if (!m_TPPW_hwnd)
     {
-        log_message_Debug("Scanner::set_click_pos_y:\n未配置TPPW窗口句柄，修改点击位置无效");
-        log_message_User("未配置微信窗口句柄，修改点击位置无效");
+        emit log_message_Debug("Scanner::set_click_pos_y:\n未配置TPPW窗口句柄，修改点击位置无效");
+        emit log_message_User("未配置微信窗口句柄，修改点击位置无效");
         return;
     }
     QPair<int ,int> coordinates;
     if (!get_wechat_window_coordinates(m_TPPW_hwnd, y, coordinates))
     {
-        log_message_Debug("Scanner::set_click_pos_y:\n 获取点击坐标失败!");
-        log_message_User("获取点击坐标失败!");
+        emit log_message_Debug("Scanner::set_click_pos_y:\n 获取点击坐标失败!");
+        emit log_message_User("获取点击坐标失败!");
         return;
     }
     set_click_coordinates(coordinates.first, coordinates.second);
 
+}
+
+void Scanner::set_bed_name(const QString &name)
+{
+    emit log_message_Debug(QString("Scanner::set_bed_name:\n重生床名设置为\"%1\"").arg(name));
+    emit log_message_User(QString("重生床名设置为\"%1\"").arg(name));
+    m_bed_name = name;
 }
 
 bool Scanner::start_work()
@@ -567,28 +575,32 @@ int Scanner::ensure_tribe_log_open()
             emit log_message_Debug("Scanner::ensure_tribe_log_open:\n截图失败 // Capture failed!");
             return 1;
         }
-        // Check died
-        if (!OCR_area_death(game_screenshot, OCR_result, dummy_image))
+
+        // Check died 检测角色死亡
+        if (check_die(game_screenshot))
         {
-            emit log_message_Debug("Scanner::ensure_tribe_log_open:\nOCR failed");
-            return 1;
+            emit log_message_Debug("Scanner::ensure_tribe_log_open:\n检测到角色死亡！");
+            emit log_message_User("检测到角色死亡");
         }
         else
         {
-            if (!OCR_result.isEmpty())
-            {
-                QStringList keys = {"died", "死"};
-                for (QString key : keys)
-                {
-                    if (OCR_result.contains(key, Qt::CaseInsensitive))
-                    {
-                        emit log_message_Debug("Scanner::ensure_tribe_log_open:\n检测到角色死亡！");
-                        emit log_message_User("检测到角色死亡");
-                        return 2;
-                    }
-                }
-            }
+            emit log_message_Debug("Scanner::ensure_tribe_log_open:\n角色未死亡！");
+            emit log_message_User("角色未死亡");
         }
+        // 检测是否已经死亡且已经跳转到重生界面
+        if (check_bed(game_screenshot))
+        {
+            emit log_message_Debug("Scanner::ensure_tribe_log_open:\n检测到角色死亡(重生界面)！");
+            emit log_message_User("检测到角色死亡(重生界面)");
+        }
+        else
+        {
+            emit log_message_Debug("Scanner::ensure_tribe_log_open:\n角色未死亡！");
+            emit log_message_User("角色未死亡");
+        }
+
+        OCR_result = QString();
+        // 检测部落日志识别内容
         if (!OCR_area_T(game_screenshot, OCR_result, dummy_image))
         {
             emit log_message_Debug("Scanner::ensure_tribe_log_open:\nOCR failed");
@@ -719,6 +731,202 @@ void Scanner::handle_tribe_alerts(const QImage &screenshot, const QMap<QString, 
 QString Scanner::make_time_stamp()
 {
     return QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+}
+
+bool Scanner::auto_respawn()
+{
+    emit log_message_Debug("Scanner::auto_respawn()\n开始执行重生");
+    emit log_message_User("开始尝试自动重生");
+    //  流程: 检测顶部区域是否有死亡提示 或者选床区域是否有床
+    QImage game_sc;
+    int tries = 0;
+    do
+    {
+        if (!scan_window(m_game_window_hwnd) || !scan_window(m_game_window_title))
+        {
+            emit log_message_Debug("Scanner::auto_respawn()\n游戏窗口不存在");
+            emit log_message_User("游戏窗口不存在");
+            emit game_crashed();
+            emit log_message_Debug("Scanner::auto_respawn()\n发出游戏崩溃信号");
+            return false;
+        }
+        if (!print_window(m_game_window_hwnd, game_sc))
+        {
+            emit log_message_Debug("Scanner::auto_respawn()\n截图失败");
+            emit log_message_User("截图失败， 退出自动重生");
+            return false;
+        }
+        else
+        {
+            if (check_die(game_sc))
+            {
+                emit log_message_Debug("Scanner::auto_respawn()\n检测到游戏处于死亡黑屏");
+                emit log_message_User("检测到死亡黑屏，等待5秒");
+                QThread::msleep(5000);
+            }
+            else
+            {
+                emit log_message_Debug("Scanner::auto_respawn()\n未检测到游戏处于死亡黑屏");
+                emit log_message_User("未检测到死亡黑屏");
+            }
+
+            if (!print_window(m_game_window_hwnd, game_sc))
+            {
+                emit log_message_Debug("Scanner::auto_respawn()\n截图失败");
+                emit log_message_User("截图失败， 退出自动重生");
+                return false;
+            }
+            else
+            {
+                if (check_bed(game_sc))
+                {
+                    emit log_message_Debug("Scanner::auto_respawn()\n检测到选床界面");
+                    emit log_message_User("检测到选床界面，开始选床(若未配置床名则默认第一个床复活，若床不存在则在第一个出生区域复活)");
+                    return select_bed();
+                }
+                else
+                {
+                    emit log_message_Debug("Scanner::auto_respawn()\n未检测到选床界面");
+                    emit log_message_User("未检测到选床界面");
+                }
+            }
+        }
+        tries++;
+        QThread::msleep(3000);
+    } while (tries < 10);
+    return false;
+}
+
+bool Scanner::check_die(const QImage &sc)
+{
+    QImage dummy_image;
+    QString OCR_result;
+    if (!OCR_area_death(sc, OCR_result, dummy_image))
+    {
+        emit log_message_Debug("Scanner::ensure_tribe_log_open:\nOCR_area_death failed");
+        return false;
+    }
+    else
+    {
+        if (!OCR_result.isEmpty())
+        {
+            QStringList keys = {"died", "死"};
+            for (QString key : keys)
+            {
+                if (OCR_result.contains(key, Qt::CaseInsensitive))
+                {
+                    emit log_message_Debug("Scanner::ensure_tribe_log_open:\n检测到角色死亡！");
+                    emit log_message_User("检测到角色死亡");
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool Scanner::check_bed(const QImage &sc)
+{
+    QImage dummy_image;
+    QString OCR_result;
+    if (!::OCR_area_beds_select_ui(sc, OCR_result, dummy_image))
+    {
+        emit log_message_Debug("Scanner::ensure_tribe_log_open:\nOCR_area_beds_select_ui failed");
+        return false;
+    }
+    else
+    {
+        if (!OCR_result.isEmpty())
+        {
+            QStringList keys = {"床", "BEDS"};
+            for (QString key : keys)
+            {
+                if (OCR_result.contains(key, Qt::CaseInsensitive))
+                {
+                    emit log_message_Debug("Scanner::ensure_tribe_log_open:\n检测到角色死亡！");
+                    emit log_message_User("检测到角色死亡");
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool Scanner::select_bed()
+{
+    if (m_bed_name.isEmpty())
+    {
+        emit log_message_Debug("Scanner::select_bed:\n重生床名未配置");
+        emit log_message_User("重生床名未配置，将重生至本地图第一出生点");
+    }
+    else
+    {
+        emit log_message_Debug(QString("Scanner::select_bed:\n重生床名为\"%1\"").arg(m_bed_name));
+        emit log_message_User(QString("计划重生至\"%1\"").arg(m_bed_name));
+        RECT rc; GetWindowRect(m_game_window_hwnd, &rc);
+        int w = rc.right - rc.left, h = rc.bottom - rc.top;
+        left_click(m_game_window_hwnd, w * 205 / 1920, h * 965 /1080);
+        QThread::msleep(200);
+        paste_text(m_bed_name);
+        QThread::msleep(200);
+        QString status;
+        QImage sc, dummy_image;
+        if (!print_window(m_game_window_hwnd, sc))
+        {
+            emit log_message_Debug("Scanner::select_bed:\n截图失败");
+            emit log_message_User("截图失败");
+            return false;
+        }
+        if (OCR_area_bed_exist(sc, status, dummy_image))
+        {
+            QStringList keys = {"READY", "就绪"};
+            for (QString key : keys)
+            {
+                if (status.contains(key, Qt::CaseInsensitive))
+                {
+                    emit log_message_Debug("Scanner::select_bed:\n床位可用");
+                    emit log_message_User("预设床位可用");
+                    RECT rc; GetWindowRect(m_game_window_hwnd, &rc);
+                    int w = rc.right - rc.left, h = rc.bottom - rc.top;
+                    left_click(m_game_window_hwnd, w * 150 / 1920, h * 225 /1080);
+                    QThread::msleep(500);
+                    left_click(m_game_window_hwnd, w * 1640 / 1920, h * 960 /1080);
+                    emit log_message_User("5秒后结束自动重生");
+                    QThread::msleep(5000);
+                    return true;
+                }
+                else
+                {
+                    emit log_message_Debug("Scanner::select_bed:\n床位不存在或不可用");
+                    emit log_message_User("床位不存在或不可用，执行默认重生");
+                }
+            }
+        }
+        else
+        {
+            emit log_message_Debug("Scanner::select_bed:\nOCR失败");
+            emit log_message_User("OCR失败 自动重生失败");
+            return false;
+        }
+    }
+    default_respawn();
+    emit log_message_User("5秒后结束自动重生");
+    QThread::msleep(5000);
+    return true;
+}
+
+void Scanner::default_respawn()
+{
+    emit log_message_Debug("Scanner::default_respaw:\n被调用");
+    emit log_message_User("执行默认重生……");
+    RECT rc; GetWindowRect(m_game_window_hwnd, &rc);
+    int w = rc.right - rc.left, h = rc.bottom - rc.top;
+    left_click(m_game_window_hwnd, w * 265 / 1920, h * 155 /1080);
+    QThread::msleep(500);
+    left_click(m_game_window_hwnd, w * 150 / 1920, h * 225 /1080);
+    QThread::msleep(500);
+    left_click(m_game_window_hwnd, w * 1640 / 1920, h * 960 /1080);
 }
 
 void Scanner::set_filter_key(QString key, bool status)
@@ -1061,20 +1269,41 @@ void Scanner::scan()
     {
     case 0:
         emit log_message_Debug("Scanner::scan: \n部落日志打开状态正常 // Tribe log is OK");
+        emit log_message_User("部落日志被打开");
         break;
     case 1:
         emit log_message_Debug("Scanner::scan: \n部落日志无法打开 // Unable to open tribe log");
+        emit log_message_User("部落日志无法打开");
         return;
+        break;
     case 2:
-        todo!!!
-        // 直接在Scanner中执行复活角色流程
+        emit log_message_Debug("Scanner::scan: \n人物死亡 // Character died");
+        emit log_message_User("人物死亡");
+
+        // 之后执行自动复活操作
+        if (m_enable_auto_respawn)
+        {
+            if (!auto_respawn())
+            {
+                emit log_message_Debug("Scanner::scan: \n自动重生失败");
+                emit log_message_User("自动重生失败，请手动处理！");
+                this->stop_work();
+            }
+        }
+        else
+        {
+            emit log_message_Debug("Scanner::scan: \n角色死亡但未启用自动重生");
+            emit log_message_User("角色死亡但未启用自动重生，请手动处理！");
+            this->stop_work();
+        }
+        break;
+    default:
+        emit log_message_Debug("Scanner::scan: \nensure_tribe_log_open回调值存在未知错误");
+        emit log_message_User("打开部落日志时遇到未知错误，请手动重置状态！");
+        this->stop_work();
+        break;
     }
 
-    if (ensure_tribe_log_open())
-    {
-        emit log_message_Debug("Scanner::scan: \n部落日志无法打开 // Unable to open tribe log");
-        return;
-    }
     if (!OCR_area_T(game_screenshot, result_log, area_log))
     {
         emit log_message_Debug("Scanner::scan: \n部落日志区域OCR失败 // OCR tribe log area faild");
@@ -1118,8 +1347,3 @@ void Scanner::refresh_call_member()
 {
     emit return_call_member(m_call_members);
 }
-
-
-
-
-

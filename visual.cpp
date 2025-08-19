@@ -674,3 +674,22 @@ bool OCR_area_beds_select_ui(const QImage &input_full_game_window, QString &reco
     }
     return true;
 }
+
+bool OCR_area_bed_exist(const QImage &input_full_game_window, QString &recognized_text, QImage &debug_roi)
+{
+    int w = input_full_game_window.width();
+    int h = input_full_game_window.height();
+    QImage pic = input_full_game_window.copy(int(w * 455 / 1920), int(h * 195 / 1080), int(w * 80 / 1920), int(h * 55 / 1080));
+
+    // 反转颜色
+    cv::Mat pic_inv;
+    cv::bitwise_not(QImage_to_cvMat(pic), pic_inv);
+    pic = CvMat_to_QImage(pic_inv);
+    debug_roi = pic;
+    if (!OCR_image(pic, recognized_text))
+    {
+        qDebug() << "OCR_area_bed_exist:\nOCR识别失败！";
+        return false;
+    }
+    return true;
+}

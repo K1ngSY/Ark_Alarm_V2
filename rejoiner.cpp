@@ -215,6 +215,7 @@ void Rejoiner::handle_start_signal()
             emit finished_1("Rejoiner::handle_start_signal:点击开始游戏按钮失败");
             return;
         }
+        QThread::msleep(2000);
         if (!click_join_card())
         {
             emit log_message_Debug("Rejoiner::handle_start_signal:\n点击加入游戏卡片失败，重连终止！");
