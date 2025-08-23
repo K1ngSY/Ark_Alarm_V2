@@ -16,8 +16,8 @@ Scanner::Scanner(QObject *parent)
 {
     // All pointers in the constructor need to be assigned to nullptr
     // 所有指针在构造函数里需要全部赋值为 nullptr
-    this->m_mCycle_timer_interval       = 10000;   // The main task loop time is temporarily set to once every 10 seconds 
-                                                   //主任务循环时间暂时定为10秒一次
+    this->m_mCycle_timer_interval       = 10000;   // The main task loop time is temporarily set to once every 10 seconds
+                                                   // 主任务循环时间暂时定为10秒一次
                                                          
                                                  // Group call member refreshTimer
     this->m_mCall_member_timer_interval = 2000;  // 群呼成员刷新Timer
