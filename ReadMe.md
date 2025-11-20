@@ -1,47 +1,59 @@
-# Ark Alarm Bot V2
+# Ark Alarm Bot V2  
 
-Ark Alarm Bot V2 是一个面向 Windows 的自动监控与报警工具，用于《方舟：生存飞升》。项目以 C++17 和 Qt 重新实现，通过 OCR 与图像处理实现无人值守的游戏守护功能。
+Ark Alarm Bot V2 is an automated monitoring and alerting tool for Windows designed for *ARK: Survival Ascended*.  
+The project is fully rewritten in C++17 with Qt, leveraging OCR and image processing to provide unattended game protection.
 
-## 功能概览
+## Features Overview
 
-- **自动监控**：`Scanner` 模块定时截图游戏窗口，通过 Tesseract OCR 识别副栉龙提示及部落日志，并根据用户配置决定是否发送文本、图片或拨打电话。
-- **崩溃处理**：`CrashHandler` 会检测崩溃弹窗，自动关闭并重新启动游戏。
-- **自动重连**：`Rejoiner` 在崩溃后自动进入服务器，支持识别服务器是否包含 Mod 并在下载完成后继续进入。
-- **消息发送**：`Sender` 负责与第三方通讯平台的窗口交互，模拟输入文字或图片并发送报警信息。
-- **辅助工具**：
-  - `motion.*` 提供鼠标键盘模拟。
-  - `visual.*` 负责截图及图像处理。
-  - `utility.*` 提供窗口查找与崩溃窗口检测等功能。
-- **多语言**：项目预留了翻译文件 `Ark_Alarm_V2_zh_CN.ts`，程序启动时会加载对应的翻译。
+- **Automated Monitoring**:  
+  The `Scanner` module periodically captures the game window, uses Tesseract OCR to detect Desmodus-related prompts and tribe logs, and triggers text, image, or phone-call alerts depending on user configuration.
 
-## 目录结构
+- **Crash Handling**:  
+  `CrashHandler` detects crash pop-ups, automatically closes them, and restarts the game.
 
-- `dashboard.*` - 主界面及 UI 逻辑。
-- `scanner.*` - 监控与报警的核心实现。
-- `crashhandler.*` - 游戏崩溃监测与重启。
-- `rejoiner.*` - 自动重连服务器流程。
-- `sender.*` - 向通讯平台窗口发送消息。
-- `motion.*` - 模拟输入操作。
-- `visual.*` - 截图、OCR 及图像识别。
-- `utility.*` - 窗口相关的辅助函数。
-- `util/` - 存放报警音效 (`Log_Alarm.wav`, `P_Alarm.wav`)。
+- **Auto Rejoin**:  
+  After a crash, `Rejoiner` automatically rejoins the server.  
+  It detects whether the server uses mods, waits for the mod download to complete, then continues entering the server.
 
-## 依赖
+- **Message Sending**:  
+  `Sender` interacts with third-party communication apps, simulating text or image input and dispatching alert messages.
 
-- Qt（项目文件 `Ark_Alarm_V2.pro` 指定了 `core`、`gui`、`network`、`widgets`、`multimedia` 模块）
-- OpenCV
-- Tesseract OCR 与 Leptonica
-- Windows SDK（使用 Win32 API）
+- **Utility Tools**:
+  - `motion.*` simulates mouse and keyboard actions.  
+  - `visual.*` handles screenshots and image processing.  
+  - `utility.*` provides window searching, crash window detection, and other helpers.
 
-将对应库的头文件与链接路径配置好后，可使用 `qmake` 或 Qt Creator 进行编译。
+- **Multilingual Support**:  
+  The project includes the translation file `Ark_Alarm_V2_zh_CN.ts`.  
+  The program loads the corresponding translation at startup.
 
-## 使用说明
+## Project Structure
 
-1. 确保 `tessdata` 目录位于可执行文件同级目录下，内含 `chi_sim` 与 `eng` 训练数据。
-2. 在界面中设置游戏窗口标题、通讯平台窗口标题及坐标等参数。
-3. 启动监控后，程序会周期性截图并根据日志触发条件发送提醒。
+- `dashboard.*` – Main UI and logic.  
+- `scanner.*` – Core monitoring and alert implementation.  
+- `crashhandler.*` – Game crash detection & restart workflow.  
+- `rejoiner.*` – Automated server rejoin logic.  
+- `sender.*` – Message dispatching to communication app windows.  
+- `motion.*` – Input simulation utilities.  
+- `visual.*` – Screenshot, OCR, and image recognition.  
+- `utility.*` – Window-related helper functions.  
+- `util/` – Contains sound effects (`Log_Alarm.wav`, `P_Alarm.wav`).
 
-## 许可
+## Dependencies
 
-仓库未包含开源许可文件，默认保留所有权利。
+- Qt (as defined in `Ark_Alarm_V2.pro`: `core`, `gui`, `network`, `widgets`, `multimedia`)  
+- OpenCV  
+- Tesseract OCR & Leptonica  
+- Windows SDK (Win32 API)
 
+After configuring header and library paths, the project can be compiled using `qmake` or Qt Creator.
+
+## Usage Instructions
+
+1. Ensure the `tessdata` directory is placed alongside the executable, containing both `chi_sim` and `eng` trained data files.  
+2. In the interface, set parameters such as the game window title, communication app window title, and coordinate-related settings.  
+3. After starting monitoring, the program periodically captures screenshots and sends alerts based on detected log triggers.
+
+## License
+
+No open-source license is included in the repository; all rights are reserved by default.
